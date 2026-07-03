@@ -29,7 +29,7 @@ export default function Catalogo() {
           { id: 1, nombre: "Canva Pro (Anual)", descripcion: "Acceso premium administrado mediante equipo", precio: 49.90, duracionMeses: 12, categoria: "Software", imagenUrl: "/canva.png" },
           { id: 2, nombre: "CapCut Pro (Anual)", descripcion: "Edición de video premium anual", precio: 69.90, duracionMeses: 12, categoria: "Software", imagenUrl: "/capcut.png" },
           { id: 3, nombre: "ESET Internet Security", descripcion: "Activación retail de 365 días", precio: 39.90, duracionMeses: 12, categoria: "Software", imagenUrl: "/eset.png" },
-          { id: 4, nombre: "Windows 11 Pro", descripcion: "Licencia OEM enlazada al hardware del equipo", precio: 29.90, duracionMeses: 0, categoria: "Software", imagenUrl: "/windows.png" },
+          { id: 4, font_bold: "Windows 11 Pro", nombre: "Windows 11 Pro", descripcion: "Licencia OEM enlazada al hardware del equipo", precio: 29.90, duracionMeses: 0, categoria: "Software", imagenUrl: "/windows.png" },
           { id: 5, nombre: "ChatGPT Plus (1 Mes)", descripcion: "Acceso compartido perfil premium", precio: 19.90, duracionMeses: 1, categoria: "IA", imagenUrl: "/chatgpt.png" },
           { id: 6, nombre: "Netflix Premium (1 Mes)", descripcion: "Cuenta completa o pantalla ultra HD", precio: 15.00, duracionMeses: 1, categoria: "Streaming", imagenUrl: "/netflix.png" },
           { id: 7, nombre: "HBO Max (1 Mes)", descripcion: "Perfil de streaming mensual", precio: 12.00, duracionMeses: 1, categoria: "Streaming", imagenUrl: "/hbomax.png" }
@@ -58,8 +58,8 @@ export default function Catalogo() {
 
   const productosFiltrados = productos.filter((prod) => {
     const cumpleFiltro = filtro === 'Todos' || prod.categoria === filtro;
-    const cumpleBusqueda = prod.nombre.toLowerCase().includes(buscar.toLowerCase()) || 
-                          prod.descripcion.toLowerCase().includes(buscar.toLowerCase());
+    const cumpleBusqueda = prod.nombre.toLowerCase().includes(buscar.toLowerCase()) ||
+      prod.descripcion.toLowerCase().includes(buscar.toLowerCase());
     return cumpleFiltro && cumpleBusqueda;
   });
 
@@ -109,11 +109,10 @@ export default function Catalogo() {
               <button
                 key={cat.id}
                 onClick={() => setFiltro(cat.id)}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium text-sm transition-all duration-300 whitespace-nowrap ${
-                  activo
-                    ? 'bg-sky-500 text-slate-950 shadow-lg shadow-sky-500/25'
-                    : 'bg-slate-950 text-slate-400 border border-slate-850 hover:bg-slate-900 hover:text-slate-100'
-                }`}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium text-sm transition-all duration-300 whitespace-nowrap ${activo
+                  ? 'bg-sky-500 text-slate-950 shadow-lg shadow-sky-500/25'
+                  : 'bg-slate-950 text-slate-400 border border-slate-850 hover:bg-slate-900 hover:text-slate-100'
+                  }`}
               >
                 <Icon className="w-4 h-4" />
                 {cat.label}
@@ -137,7 +136,7 @@ export default function Catalogo() {
           {productosFiltrados.map((prod) => {
             const badge = getBadgeDuracion(prod.duracionMeses);
             const esAgregado = productoAgregadoId === prod.id;
-            
+
             return (
               <div
                 key={prod.id}
@@ -152,11 +151,10 @@ export default function Catalogo() {
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                   />
                   <div className="absolute top-3 left-3 flex flex-col gap-1.5">
-                    <span className={`text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full shadow-md tracking-wider ${
-                      prod.categoria === 'Software' ? 'bg-sky-500/20 text-sky-300 border border-sky-500/30' :
+                    <span className={`text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full shadow-md tracking-wider ${prod.categoria === 'Software' ? 'bg-sky-500/20 text-sky-300 border border-sky-500/30' :
                       prod.categoria === 'Streaming' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' :
-                      'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                    }`}>
+                        'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                      }`}>
                       {prod.categoria}
                     </span>
                   </div>
@@ -188,11 +186,10 @@ export default function Catalogo() {
 
                     <button
                       onClick={() => handleAgregar(prod)}
-                      className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-bold text-xs transition-all duration-300 active:scale-95 ${
-                        esAgregado
-                          ? 'bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/25'
-                          : 'bg-sky-500 hover:bg-sky-400 text-slate-950 shadow-lg shadow-sky-500/20'
-                      }`}
+                      className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-bold text-xs transition-all duration-300 active:scale-95 ${esAgregado
+                        ? 'bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/25'
+                        : 'bg-sky-500 hover:bg-sky-400 text-slate-950 shadow-lg shadow-sky-500/20'
+                        }`}
                       title={esAgregado ? "Agregado al Carrito" : "Comprar Producto"}
                     >
                       {esAgregado ? (
