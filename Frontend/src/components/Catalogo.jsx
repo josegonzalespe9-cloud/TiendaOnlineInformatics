@@ -133,7 +133,7 @@ export default function Catalogo() {
           <p className="text-slate-400">No encontramos productos que coincidan con la búsqueda.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 p-4">
           {productosFiltrados.map((prod) => {
             const badge = getBadgeDuracion(prod.duracionMeses);
             const esAgregado = productoAgregadoId === prod.id;
@@ -141,12 +141,13 @@ export default function Catalogo() {
             return (
               <div
                 key={prod.id}
-                className="bg-slate-900/80 backdrop-blur-md border border-slate-800 hover:border-sky-500/50 rounded-2xl overflow-hidden flex flex-col justify-between transition-all duration-300 transform hover:-translate-y-1.5 shadow-lg hover:shadow-sky-500/10 group"
+                className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-md hover:shadow-lg transition-shadow flex flex-col justify-between group"
               >
                 {/* Imagen */}
-                <div className="relative aspect-video w-full overflow-hidden bg-slate-950 border-b border-slate-800">
+                <div className="relative w-full aspect-square overflow-hidden bg-slate-950 rounded-lg">
                   <img
-                    src={prod.imagenUrl || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=500"}
+                    src={prod.imagenUrl || 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=300&q=80'}
+                    onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=300&q=80'; }}
                     alt={prod.nombre}
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                   />
@@ -167,17 +168,17 @@ export default function Catalogo() {
                 </div>
 
                 {/* Contenido */}
-                <div className="p-5 flex-1 flex flex-col justify-between">
+                <div className="mt-4 flex-1 flex flex-col justify-between">
                   <div className="space-y-2 mb-4">
-                    <h3 className="text-base font-bold text-slate-100 line-clamp-1 group-hover:text-sky-400 transition-colors">
+                    <h3 className="text-lg font-bold text-slate-100 line-clamp-1 group-hover:text-sky-400 transition-colors">
                       {prod.nombre}
                     </h3>
-                    <p className="text-slate-400 text-xs line-clamp-2 leading-relaxed min-h-[32px]">
+                    <p className="text-slate-400 text-sm line-clamp-2 leading-relaxed min-h-[40px]">
                       {prod.descripcion}
                     </p>
                   </div>
 
-                  <div className="flex items-center justify-between mt-auto">
+                  <div className="flex items-center justify-between mt-auto pt-2 border-t border-slate-800/60">
                     <div className="flex flex-col">
                       <span className="text-[10px] text-slate-500 uppercase tracking-widest">Precio</span>
                       <span className="text-lg font-bold text-emerald-400">
@@ -187,17 +188,23 @@ export default function Catalogo() {
 
                     <button
                       onClick={() => handleAgregar(prod)}
-                      className={`p-3 rounded-xl transition-all duration-300 flex items-center justify-center transform active:scale-95 ${
+                      className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-bold text-xs transition-all duration-300 active:scale-95 ${
                         esAgregado
-                          ? 'bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/20'
-                          : 'bg-slate-950 text-slate-300 hover:text-sky-400 border border-slate-800 hover:border-sky-500/30'
+                          ? 'bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/25'
+                          : 'bg-sky-500 hover:bg-sky-400 text-slate-950 shadow-lg shadow-sky-500/20'
                       }`}
-                      title="Agregar al Carrito"
+                      title={esAgregado ? "Agregado al Carrito" : "Comprar Producto"}
                     >
                       {esAgregado ? (
-                        <Check className="w-4 h-4" />
+                        <>
+                          <Check className="w-3.5 h-3.5" />
+                          Agregado
+                        </>
                       ) : (
-                        <ShoppingCart className="w-4 h-4" />
+                        <>
+                          <ShoppingCart className="w-3.5 h-3.5" />
+                          Comprar
+                        </>
                       )}
                     </button>
                   </div>
