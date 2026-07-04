@@ -265,7 +265,7 @@ export default function AdminPanel() {
     try {
       const url = showProductForm === 'create' 
         ? `${API_URL}/api/admin/productos`
-        : `${API_URL}/api/admin/productos/${editingProducto.id}`;
+        : `${API_URL}/api/admin/productos/${editingProducto.id || editingProducto.productoId}`;
       
       const method = showProductForm === 'create' ? 'POST' : 'PUT';
 
@@ -290,12 +290,22 @@ export default function AdminPanel() {
     }
   };
 
-  const deleteProduct = async (id) => {
-    if (!window.confirm('¿Está seguro de que desea eliminar este producto del catálogo?')) return;
+  const deleteProduct = async (prod) => {
+    if (!prod) return;
+    const id = prod.id || prod.productoId;
+    if (!id) {
+      alert("Error: No se pudo encontrar el identificador del producto.");
+      return;
+    }
+
+    if (!window.confirm(`¿Está seguro de que desea eliminar el producto "${prod.nombre}" del catálogo?`)) return;
 
     try {
       const response = await fetch(`${API_URL}/api/admin/productos/${id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
 
       if (response.status === 409) {
@@ -885,7 +895,7 @@ export default function AdminPanel() {
                   </thead>
                   <tbody className="divide-y divide-slate-800 bg-slate-900/50">
                     {productos.map((prod) => (
-                      <tr key={prod.id} className="hover:bg-slate-900/80 transition-colors">
+                      <tr key={prod.id || prod.productoId} className="hover:bg-slate-900/80 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap flex items-center gap-3">
                           <img 
                             src={prod.imagenUrl} 
@@ -926,7 +936,7 @@ export default function AdminPanel() {
                               <Edit3 className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => deleteProduct(prod.id)}
+                              onClick={() => deleteProduct(prod)}
                               className="bg-slate-950 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 text-rose-500 p-2 rounded-lg transition-all"
                               title="Eliminar"
                             >
