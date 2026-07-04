@@ -310,7 +310,7 @@ export default function AdminPanel() {
 
       if (response.status === 409) {
         const errData = await response.json();
-        alert(errData.mensaje || 'No se puede eliminar el producto porque tiene órdenes comerciales activas asociadas.');
+        alert(errData.mensaje || 'No se puede eliminar el producto.');
         return;
       }
 
@@ -318,7 +318,7 @@ export default function AdminPanel() {
         throw new Error('Error al eliminar el producto');
       }
 
-      alert('¡Producto eliminado con éxito!');
+      alert('¡Producto desactivado con éxito!');
       await fetchProductos();
     } catch (err) {
       console.error("Error al eliminar producto:", err);
@@ -1130,7 +1130,7 @@ export default function AdminPanel() {
                       
                       return (
                         <div key={index} className="space-y-2">
-                          <div className="flex justify-between text-xs font-bold text-slate-350">
+                          <div className="flex justify-between text-xs font-bold text-slate-355 font-bold">
                             <span>{cat.categoria}</span>
                             <span>{cat.cantidad} unidades ({porcentaje.toFixed(1)}%)</span>
                           </div>

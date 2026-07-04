@@ -62,11 +62,32 @@ using (var scope = app.Services.CreateScope())
                         ALTER TABLE ""Productos"" ADD COLUMN ""CostoProveedor"" decimal(18,2) NOT NULL DEFAULT 0.00;
                     END IF;
                 END $$;");
-            Console.WriteLine("Columna CostoProveedor verificada/creada con éxito.");
+            Console.WriteLine("Columna CostoProveedor verifada/creada con éxito.");
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Advertencia al verificar columna CostoProveedor: {ex.Message}");
+        }
+
+        // Verificar si la columna Activo existe en la tabla Productos, y si no, agregarla
+        try
+        {
+            db.Database.ExecuteSqlRaw(@"
+                DO $$ 
+                BEGIN 
+                    IF NOT EXISTS (
+                        SELECT 1 
+                        FROM information_schema.columns 
+                        WHERE table_name='Productos' AND column_name='Activo'
+                    ) THEN 
+                        ALTER TABLE ""Productos"" ADD COLUMN ""Activo"" BOOLEAN NOT NULL DEFAULT TRUE;
+                    END IF;
+                END $$;");
+            Console.WriteLine("Columna Activo verificada/creada con éxito.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Advertencia al verificar columna Activo: {ex.Message}");
         }
 
         // Cargar y ejecutar el script SQL alter_imagen_url_length.sql directamente si existe
@@ -106,33 +127,33 @@ using (var scope = app.Services.CreateScope())
         var catalogToSeed = new List<Producto>
         {
             // 1. Licencias Anuales (Software)
-            new Producto { Nombre = "Canva Pro (Anual)", Descripcion = "Acceso premium administrado mediante equipo", Precio = 49.90m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/canva.png", CostoProveedor = 20.00m },
-            new Producto { Nombre = "CapCut Pro (Anual)", Descripcion = "Edición de video premium anual", Precio = 69.90m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/capcut.png", CostoProveedor = 30.00m },
-            new Producto { Nombre = "ESET Internet Security", Descripcion = "Activación retail de 365 días", Precio = 39.90m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/eset.png", CostoProveedor = 15.00m },
-            new Producto { Nombre = "Office 365 A3", Descripcion = "Suscripción anual educativa de Office 365", Precio = 59.90m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/office365.png", CostoProveedor = 25.00m },
-            new Producto { Nombre = "Adobe Creative Cloud", Descripcion = "Acceso completo a todas las aplicaciones creativas", Precio = 120.00m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/adobe.png", CostoProveedor = 60.00m },
-            new Producto { Nombre = "Autodesk Standard", Descripcion = "Licencia oficial Autodesk Suite Standard", Precio = 150.00m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/autodeskstandado.png", CostoProveedor = 70.00m },
-            new Producto { Nombre = "Autodesk Revit", Descripcion = "Diseño arquitectónico y modelado BIM profesional", Precio = 180.00m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/autodeskrevit.png", CostoProveedor = 90.00m },
-            new Producto { Nombre = "AutoCAD", Descripcion = "Diseño asistido por computadora 2D y 3D", Precio = 190.00m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/autocad.png", CostoProveedor = 100.00m },
+            new Producto { Nombre = "Canva Pro (Anual)", Descripcion = "Acceso premium administrado mediante equipo", Precio = 49.90m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/canva.png", CostoProveedor = 20.00m, Activo = true },
+            new Producto { Nombre = "CapCut Pro (Anual)", Descripcion = "Edición de video premium anual", Precio = 69.90m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/capcut.png", CostoProveedor = 30.00m, Activo = true },
+            new Producto { Nombre = "ESET Internet Security", Descripcion = "Activación retail de 365 días", Precio = 39.90m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/eset.png", CostoProveedor = 15.00m, Activo = true },
+            new Producto { Nombre = "Office 365 A3", Descripcion = "Suscripción anual educativa de Office 365", Precio = 59.90m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/office365.png", CostoProveedor = 25.00m, Activo = true },
+            new Producto { Nombre = "Adobe Creative Cloud", Descripcion = "Acceso completo a todas las aplicaciones creativas", Precio = 120.00m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/adobe.png", CostoProveedor = 60.00m, Activo = true },
+            new Producto { Nombre = "Autodesk Standard", Descripcion = "Licencia oficial Autodesk Suite Standard", Precio = 150.00m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/autodeskstandado.png", CostoProveedor = 70.00m, Activo = true },
+            new Producto { Nombre = "Autodesk Revit", Descripcion = "Diseño arquitectónico y modelado BIM profesional", Precio = 180.00m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/autodeskrevit.png", CostoProveedor = 90.00m, Activo = true },
+            new Producto { Nombre = "AutoCAD", Descripcion = "Diseño asistido por computadora 2D y 3D", Precio = 190.00m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/autocad.png", CostoProveedor = 100.00m, Activo = true },
 
             // 2. Accesos Mensuales (IA & Streaming)
-            new Producto { Nombre = "ChatGPT Plus (1 Mes)", Descripcion = "Cuenta compartida perfil premium", Precio = 19.90m, DuracionMeses = 1, Categoria = "IA", ImagenUrl = "/chatgpt.png", CostoProveedor = 10.00m },
-            new Producto { Nombre = "Gemini Advanced (1 Mes)", Descripcion = "Acceso premium a Gemini 1.5 Pro y Ultra", Precio = 22.00m, DuracionMeses = 1, Categoria = "IA", ImagenUrl = "/gemini.png", CostoProveedor = 12.00m },
-            new Producto { Nombre = "Supergrok (1 Mes)", Descripcion = "Acceso premium a Grok de xAI", Precio = 15.00m, DuracionMeses = 1, Categoria = "IA", ImagenUrl = "/supergrok.png", CostoProveedor = 8.00m },
-            new Producto { Nombre = "YouTube Premium (1 Mes)", Descripcion = "Sin anuncios y reproducción en segundo plano", Precio = 10.00m, DuracionMeses = 1, Categoria = "Streaming", ImagenUrl = "/youtubepremium.png", CostoProveedor = 4.50m },
-            new Producto { Nombre = "Spotify Premium (1 Mes)", Descripcion = "Música sin anuncios y modo sin conexión", Precio = 9.90m, DuracionMeses = 1, Categoria = "Streaming", ImagenUrl = "/spotifypremium.png", CostoProveedor = 4.00m },
-            new Producto { Nombre = "Netflix Premium (1 Mes)", Descripcion = "Cuenta completa o pantalla ultra HD", Precio = 15.00m, DuracionMeses = 1, Categoria = "Streaming", ImagenUrl = "/netflix.png", CostoProveedor = 7.00m },
-            new Producto { Nombre = "HBO Max (1 Mes)", Descripcion = "Perfil de streaming mensual", Precio = 12.00m, DuracionMeses = 1, Categoria = "Streaming", ImagenUrl = "/hbomax.png", CostoProveedor = 5.00m },
-            new Producto { Nombre = "Prime Video (1 Mes)", Descripcion = "Películas y series exclusivas de Amazon", Precio = 8.00m, DuracionMeses = 1, Categoria = "Streaming", ImagenUrl = "/primevideo.png", CostoProveedor = 3.00m },
-            new Producto { Nombre = "Paramount (1 Mes)", Descripcion = "Suscripción mensual de Paramount+", Precio = 7.00m, DuracionMeses = 1, Categoria = "Streaming", ImagenUrl = "/paramount.png", CostoProveedor = 2.50m },
+            new Producto { Nombre = "ChatGPT Plus (1 Mes)", Descripcion = "Cuenta compartida perfil premium", Precio = 19.90m, DuracionMeses = 1, Categoria = "IA", ImagenUrl = "/chatgpt.png", CostoProveedor = 10.00m, Activo = true },
+            new Producto { Nombre = "Gemini Advanced (1 Mes)", Descripcion = "Acceso premium a Gemini 1.5 Pro y Ultra", Precio = 22.00m, DuracionMeses = 1, Categoria = "IA", ImagenUrl = "/gemini.png", CostoProveedor = 12.00m, Activo = true },
+            new Producto { Nombre = "Supergrok (1 Mes)", Descripcion = "Acceso premium a Grok de xAI", Precio = 15.00m, DuracionMeses = 1, Categoria = "IA", ImagenUrl = "/supergrok.png", CostoProveedor = 8.00m, Activo = true },
+            new Producto { Nombre = "YouTube Premium (1 Mes)", Descripcion = "Sin anuncios y reproducción en segundo plano", Precio = 10.00m, DuracionMeses = 1, Categoria = "Streaming", ImagenUrl = "/youtubepremium.png", CostoProveedor = 4.50m, Activo = true },
+            new Producto { Nombre = "Spotify Premium (1 Mes)", Descripcion = "Música sin anuncios y modo sin conexión", Precio = 9.90m, DuracionMeses = 1, Categoria = "Streaming", ImagenUrl = "/spotifypremium.png", CostoProveedor = 4.00m, Activo = true },
+            new Producto { Nombre = "Netflix Premium (1 Mes)", Descripcion = "Cuenta completa o pantalla ultra HD", Precio = 15.00m, DuracionMeses = 1, Categoria = "Streaming", ImagenUrl = "/netflix.png", CostoProveedor = 7.00m, Activo = true },
+            new Producto { Nombre = "HBO Max (1 Mes)", Descripcion = "Perfil de streaming mensual", Precio = 12.00m, DuracionMeses = 1, Categoria = "Streaming", ImagenUrl = "/hbomax.png", CostoProveedor = 5.00m, Activo = true },
+            new Producto { Nombre = "Prime Video (1 Mes)", Descripcion = "Películas y series exclusivas de Amazon", Precio = 8.00m, DuracionMeses = 1, Categoria = "Streaming", ImagenUrl = "/primevideo.png", CostoProveedor = 3.00m, Activo = true },
+            new Producto { Nombre = "Paramount (1 Mes)", Descripcion = "Suscripción mensual de Paramount+", Precio = 7.00m, DuracionMeses = 1, Categoria = "Streaming", ImagenUrl = "/paramount.png", CostoProveedor = 2.50m, Activo = true },
 
             // 3. Licencias Perpetuas (Software)
-            new Producto { Nombre = "Windows 10 Pro", Descripcion = "Licencia OEM enlazada al hardware", Precio = 25.00m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = "/windows10.png", CostoProveedor = 10.00m },
-            new Producto { Nombre = "Windows 11 Pro", Descripcion = "Licencia OEM enlazada al hardware", Precio = 29.90m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = "/windows.png", CostoProveedor = 12.00m },
-            new Producto { Nombre = "Office Profesional Plus 2021", Descripcion = "Licencia perpetua de Office 2021", Precio = 35.00m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = "/office2021.png", CostoProveedor = 15.00m },
-            new Producto { Nombre = "Office Profesional Plus 2024", Descripcion = "Licencia perpetua de Office 2024", Precio = 45.00m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = "/office2024.png", CostoProveedor = 20.00m },
-            new Producto { Nombre = "Nitro 14", Descripcion = "Editor y creador de PDF profesional", Precio = 30.00m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = "/nitro14.png", CostoProveedor = 12.00m },
-            new Producto { Nombre = "Filmora", Descripcion = "Editor de video simple y creativo perpetuo", Precio = 40.00m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = "/filmora.png", CostoProveedor = 18.00m }
+            new Producto { Nombre = "Windows 10 Pro", Descripcion = "Licencia OEM enlazada al hardware", Precio = 25.00m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = "/windows10.png", CostoProveedor = 10.00m, Activo = true },
+            new Producto { Nombre = "Windows 11 Pro", Descripcion = "Licencia OEM enlazada al hardware", Precio = 29.90m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = "/windows.png", CostoProveedor = 12.00m, Activo = true },
+            new Producto { Nombre = "Office Profesional Plus 2021", Descripcion = "Licencia perpetua de Office 2021", Precio = 35.00m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = "/office2021.png", CostoProveedor = 15.00m, Activo = true },
+            new Producto { Nombre = "Office Profesional Plus 2024", Descripcion = "Licencia perpetua de Office 2024", Precio = 45.00m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = "/office2024.png", CostoProveedor = 20.00m, Activo = true },
+            new Producto { Nombre = "Nitro 14", Descripcion = "Editor y creador de PDF profesional", Precio = 30.00m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = "/nitro14.png", CostoProveedor = 12.00m, Activo = true },
+            new Producto { Nombre = "Filmora", Descripcion = "Editor de video simple y creativo perpetuo", Precio = 40.00m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = "/filmora.png", CostoProveedor = 18.00m, Activo = true }
         };
 
         foreach (var p in catalogToSeed)
@@ -144,17 +165,18 @@ using (var scope = app.Services.CreateScope())
             }
             else
             {
-                // Actualizar los datos del catálogo, incluyendo CostoProveedor e ImagenUrl
+                // Actualizar los datos del catálogo, incluyendo CostoProveedor, Activo e ImagenUrl
                 existingProd.Descripcion = p.Descripcion;
                 existingProd.Precio = p.Precio;
                 existingProd.DuracionMeses = p.DuracionMeses;
                 existingProd.Categoria = p.Categoria;
                 existingProd.ImagenUrl = p.ImagenUrl;
                 existingProd.CostoProveedor = p.CostoProveedor;
+                existingProd.Activo = p.Activo;
             }
         }
         db.SaveChanges();
-        Console.WriteLine("Catálogo oficial sembrado y actualizado correctamente con costos del proveedor en la base de datos.");
+        Console.WriteLine("Catálogo oficial sembrado y actualizado correctamente con costos de proveedor y bandera Activo.");
     }
     catch (Exception ex)
     {
@@ -234,12 +256,12 @@ app.MapPost("/api/auth/login", async (LoginDto loginDto, ApplicationDbContext db
     }
 });
 
-// 3. OBTENER CATALOGO
+// 3. OBTENER CATALOGO PÚBLICO (RETORNA EXCLUSIVAMENTE PRODUCTOS CON ACTIVO == TRUE)
 app.MapGet("/api/productos", async (ApplicationDbContext db) =>
 {
     try
     {
-        var productos = await db.Productos.ToListAsync();
+        var productos = await db.Productos.Where(p => p.Activo).ToListAsync();
         return Results.Ok(productos);
     }
     catch (Exception ex)
@@ -579,12 +601,12 @@ app.MapGet("/api/admin/renovaciones", async (ApplicationDbContext db) =>
 
 // --- NUEVOS ENDPOINTS ARCHITECTURA EMPRESARIAL ---
 
-// 9. CRUD PRODUCTOS - LISTAR TODOS
+// 9. CRUD PRODUCTOS - LISTAR TODOS (SÓLO RETORNA PRODUCTOS CON ACTIVO == TRUE)
 app.MapGet("/api/admin/productos", async (ApplicationDbContext db) =>
 {
     try
     {
-        var productos = await db.Productos.OrderBy(p => p.Nombre).ToListAsync();
+        var productos = await db.Productos.Where(p => p.Activo).OrderBy(p => p.Nombre).ToListAsync();
         return Results.Ok(productos);
     }
     catch (Exception ex)
@@ -635,6 +657,7 @@ app.MapPut("/api/admin/productos/{id}", async (int id, Producto producto, Applic
         existing.Categoria = producto.Categoria;
         existing.ImagenUrl = producto.ImagenUrl;
         existing.CostoProveedor = producto.CostoProveedor;
+        existing.Activo = producto.Activo;
 
         await db.SaveChangesAsync();
         return Results.Ok(existing);
@@ -647,7 +670,7 @@ app.MapPut("/api/admin/productos/{id}", async (int id, Producto producto, Applic
     }
 });
 
-// 12. CRUD PRODUCTOS - ELIMINAR (CON RESTRICCIÓN DE ORDENES ACTIVAS)
+// 12. CRUD PRODUCTOS - ELIMINAR (MIGRADO A BORRADO LÓGICO PARA PRESERVAR INTEGRIDAD REFERENCIAL)
 app.MapDelete("/api/admin/productos/{id}", async (int id, ApplicationDbContext db) =>
 {
     try
@@ -658,25 +681,17 @@ app.MapDelete("/api/admin/productos/{id}", async (int id, ApplicationDbContext d
             return Results.NotFound(new { mensaje = "Producto no encontrado." });
         }
 
-        // Verificar si tiene órdenes activas asociadas (en estado Pendiente o Completada)
-        var tieneOrdenes = await db.DetalleOrdenes
-            .Include(d => d.Orden)
-            .AnyAsync(d => d.ProductoId == id && d.Orden != null && (d.Orden.Estado == "Pendiente" || d.Orden.Estado == "Completada"));
-
-        if (tieneOrdenes)
-        {
-            return Results.Conflict(new { mensaje = "No es posible eliminar este producto debido a que cuenta con órdenes comerciales asociadas en curso o completadas." });
-        }
-
-        db.Productos.Remove(product);
+        // Borrado lógico toggling Activo = false
+        product.Activo = false;
         await db.SaveChangesAsync();
-        return Results.Ok(new { mensaje = "Producto eliminado con éxito del catálogo." });
+        
+        return Results.Ok(new { mensaje = "Producto desactivado con éxito del catálogo." });
     }
     catch (Exception ex)
     {
         var log = $"Fecha: {DateTime.UtcNow}\nComponente: AdminDeleteProducto\nMensaje: {ex.Message}\nTraza: {ex.StackTrace}";
         Console.WriteLine(log);
-        return Results.Json(new { mensaje = "Error al eliminar el producto.", detalle = ex.Message }, statusCode: 500);
+        return Results.Json(new { mensaje = "Error al desactivar el producto.", detalle = ex.Message }, statusCode: 500);
     }
 });
 

@@ -35,4 +35,6 @@ public class Producto
     [Range(0.00, 10000.00, ErrorMessage = "El costo debe estar entre 0.00 y 10000.00")]
     [Column(TypeName = "decimal(18,2)")]
     public decimal CostoProveedor { get; set; }
+
+    public bool Activo { get; set; } = true;
 }
