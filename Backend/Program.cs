@@ -14,7 +14,8 @@ builder.Services.ConfigureHttpJsonOptions(options => {
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseNpgsql(connectionString));
+    options.UseNpgsql(connectionString)
+           .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning)));
 
 // Registrar el servicio en segundo plano para alertas de renovación
 builder.Services.AddHostedService<Backend.Services.WorkerRenovaciones>();
@@ -34,7 +35,6 @@ builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
-// --- BLOQUE DE INICIALIZACIÓN CORREGIDO ---
 // --- BLOQUE DE INICIALIZACIÓN CORREGIDO PARA SUPABASE ---
 using (var scope = app.Services.CreateScope())
 {
@@ -44,24 +44,90 @@ using (var scope = app.Services.CreateScope())
         
         // Aplica las migraciones pendientes y crea las tablas si no existen sin borrar la BD
         db.Database.Migrate();
+
+        // Cargar y ejecutar el script SQL alter_imagen_url_length.sql directamente
+        var sqlPath = Path.Combine(app.Environment.ContentRootPath, "Data", "alter_imagen_url_length.sql");
+        if (File.Exists(sqlPath))
+        {
+            try
+            {
+                var sqlScript = File.ReadAllText(sqlPath);
+                db.Database.ExecuteSqlRaw(sqlScript);
+                Console.WriteLine("Script SQL alter_imagen_url_length.sql ejecutado con éxito.");
+            }
+            catch (Exception sqlEx)
+            {
+                Console.WriteLine($"Error al ejecutar script SQL: {sqlEx.Message}");
+            }
+        }
+        else
+        {
+            Console.WriteLine($"Advertencia: No se encontró el script SQL en {sqlPath}");
+        }
+
+        var urlsMapeadas = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            { "Canva Pro (Anual)", "/canva.png" },
+            { "CapCut Pro (Anual)", "/capcut.png" },
+            { "ESET Internet Security", "/eset.png" },
+            { "Windows 11 Pro", "/windows.png" },
+            { "ChatGPT Plus (1 Mes)", "/chatgpt.png" },
+            { "Netflix Premium (1 Mes)", "/netflix.png" },
+            { "HBO Max (1 Mes)", "/hbomax.png" }
+        };
         
         if (!db.Productos.Any())
         {
             db.Productos.AddRange(
-                new Producto { Nombre = "Canva Pro (Anual)", Descripcion = "Acceso premium administrado mediante equipo", Precio = 49.90m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/canva.svg" },
-                new Producto { Nombre = "CapCut Pro (Anual)", Descripcion = "Edición de video premium anual", Precio = 69.90m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/capcut.svg" },
-                new Producto { Nombre = "ESET Internet Security", Descripcion = "Activación retail de 365 días", Precio = 39.90m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/eset.svg" },
-                new Producto { Nombre = "Windows 11 Pro", Descripcion = "Licencia OEM enlazada al hardware", Precio = 29.90m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = "https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/windows11.svg" },
-                new Producto { Nombre = "ChatGPT Plus (1 Mes)", Descripcion = "Cuenta compartida perfil premium", Precio = 19.90m, DuracionMeses = 1, Categoria = "IA", ImagenUrl = "https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/openai.svg" },
-                new Producto { Nombre = "Netflix Premium (1 Mes)", Descripcion = "Cuenta completa o pantalla ultra HD", Precio = 15.00m, DuracionMeses = 1, Categoria = "Streaming", ImagenUrl = "https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/netflix.svg" },
-                new Producto { Nombre = "HBO Max (1 Mes)", Descripcion = "Perfil de streaming mensual", Precio = 12.00m, DuracionMeses = 1, Categoria = "Streaming", ImagenUrl = "https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/hbo.svg" }
+                new Producto { Nombre = "Canva Pro (Anual)", Descripcion = "Acceso premium administrado mediante equipo", Precio = 49.90m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = urlsMapeadas["Canva Pro (Anual)"] },
+                new Producto { Nombre = "CapCut Pro (Anual)", Descripcion = "Edición de video premium anual", Precio = 69.90m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = urlsMapeadas["CapCut Pro (Anual)"] },
+                new Producto { Nombre = "ESET Internet Security", Descripcion = "Activación retail de 365 días", Precio = 39.90m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = urlsMapeadas["ESET Internet Security"] },
+                new Producto { Nombre = "Windows 11 Pro", Descripcion = "Licencia OEM enlazada al hardware", Precio = 29.90m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = urlsMapeadas["Windows 11 Pro"] },
+                new Producto { Nombre = "ChatGPT Plus (1 Mes)", Descripcion = "Cuenta compartida perfil premium", Precio = 19.90m, DuracionMeses = 1, Categoria = "IA", ImagenUrl = urlsMapeadas["ChatGPT Plus (1 Mes)"] },
+                new Producto { Nombre = "Netflix Premium (1 Mes)", Descripcion = "Cuenta completa o pantalla ultra HD", Precio = 15.00m, DuracionMeses = 1, Categoria = "Streaming", ImagenUrl = urlsMapeadas["Netflix Premium (1 Mes)"] },
+                new Producto { Nombre = "HBO Max (1 Mes)", Descripcion = "Perfil de streaming mensual", Precio = 12.00m, DuracionMeses = 1, Categoria = "Streaming", ImagenUrl = urlsMapeadas["HBO Max (1 Mes)"] }
             );
             db.SaveChanges();
+            Console.WriteLine("Base de datos sembrada con URLs relativas correctamente.");
+        }
+        else
+        {
+            // Lógica de reparación automática de URLs antiguas de internet o de desarrollo
+            var productosExistentes = db.Productos.ToList();
+            bool huboCambios = false;
+            foreach (var prod in productosExistentes)
+            {
+                if (string.IsNullOrWhiteSpace(prod.ImagenUrl) || 
+                    prod.ImagenUrl.Contains("localhost") || 
+                    prod.ImagenUrl.Contains("127.0.0.1") ||
+                    prod.ImagenUrl.StartsWith("http://") ||
+                    prod.ImagenUrl.StartsWith("https://"))
+                {
+                    if (urlsMapeadas.TryGetValue(prod.Nombre, out var nuevaUrl))
+                    {
+                        prod.ImagenUrl = nuevaUrl;
+                        huboCambios = true;
+                        Console.WriteLine($"Reparada imagen del producto '{prod.Nombre}' a ruta relativa local: {nuevaUrl}");
+                    }
+                    else
+                    {
+                        var fallbackUrl = "/canva.png";
+                        prod.ImagenUrl = fallbackUrl;
+                        huboCambios = true;
+                        Console.WriteLine($"Reparada imagen del producto '{prod.Nombre}' con fallback URL: {fallbackUrl}");
+                    }
+                }
+            }
+            if (huboCambios)
+            {
+                db.SaveChanges();
+                Console.WriteLine("Se guardaron las correcciones de URLs relativas en la base de datos.");
+            }
         }
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"Error al sembrar la base de datos: {ex.Message}");
+        Console.WriteLine($"Error al sembrar o reparar la base de datos: {ex.Message}");
     }
 }
 

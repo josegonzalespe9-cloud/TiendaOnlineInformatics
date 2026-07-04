@@ -3,6 +3,7 @@ import { useCart } from '../context/CartContext';
 import { ShoppingBag, Trash2, Plus, Minus, CreditCard, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { API_URL } from '../services/api';
+import CachedImage from './CachedImage';
 
 export default function Carrito() {
   const { cartItems, cartTotal, updateQuantity, removeFromCart, clearCart, user } = useCart();
@@ -109,7 +110,7 @@ export default function Carrito() {
               className="bg-slate-900/80 backdrop-blur-md border border-slate-800 rounded-2xl p-4 md:p-6 flex flex-col sm:flex-row items-center gap-4 hover:border-slate-700 transition-all duration-300"
             >
               {/* Imagen */}
-              <img
+              <CachedImage
                 src={item.imagenUrl || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=500"}
                 alt={item.nombre}
                 className="w-20 h-20 rounded-xl object-cover border border-slate-800"

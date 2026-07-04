@@ -28,6 +28,6 @@ public class Producto
     [MaxLength(50)]
     public string Categoria { get; set; } = string.Empty; // "Software", "Streaming", "IA"
 
-    [MaxLength(255)]
+    [MaxLength(2048)]
     public string ImagenUrl { get; set; } = string.Empty;
 }

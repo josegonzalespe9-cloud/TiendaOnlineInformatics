@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useCart } from '../context/CartContext';
 import { Search, Monitor, Tv, BrainCircuit, ShoppingCart, Info, Check } from 'lucide-react';
 import { API_URL } from '../services/api';
+import CachedImage from './CachedImage';
 
 export default function Catalogo() {
   const [productos, setProductos] = useState([]);
@@ -26,13 +27,13 @@ export default function Catalogo() {
         console.error("Error al obtener catálogo:", error);
         // Semilla local de respaldo si falla la API
         setProductos([
-          { id: 1, nombre: "Canva Pro (Anual)", descripcion: "Acceso premium administrado mediante equipo", precio: 49.90, duracionMeses: 12, categoria: "Software", imagenUrl: "/canva.png" },
-          { id: 2, nombre: "CapCut Pro (Anual)", descripcion: "Edición de video premium anual", precio: 69.90, duracionMeses: 12, categoria: "Software", imagenUrl: "/capcut.png" },
-          { id: 3, nombre: "ESET Internet Security", descripcion: "Activación retail de 365 días", precio: 39.90, duracionMeses: 12, categoria: "Software", imagenUrl: "/eset.png" },
-          { id: 4, font_bold: "Windows 11 Pro", nombre: "Windows 11 Pro", descripcion: "Licencia OEM enlazada al hardware del equipo", precio: 29.90, duracionMeses: 0, categoria: "Software", imagenUrl: "/windows.png" },
-          { id: 5, nombre: "ChatGPT Plus (1 Mes)", descripcion: "Acceso compartido perfil premium", precio: 19.90, duracionMeses: 1, categoria: "IA", imagenUrl: "/chatgpt.png" },
-          { id: 6, nombre: "Netflix Premium (1 Mes)", descripcion: "Cuenta completa o pantalla ultra HD", precio: 15.00, duracionMeses: 1, categoria: "Streaming", imagenUrl: "/netflix.png" },
-          { id: 7, nombre: "HBO Max (1 Mes)", descripcion: "Perfil de streaming mensual", precio: 12.00, duracionMeses: 1, categoria: "Streaming", imagenUrl: "/hbomax.png" }
+          { id: 1, nombre: "Canva Pro (Anual)", descripcion: "Acceso premium administrado mediante equipo", precio: 49.90, duracionMeses: 12, categoria: "Software", imagenUrl: "https://upload.wikimedia.org/wikipedia/commons/0/08/Canva_icon_2021.svg" },
+          { id: 2, nombre: "CapCut Pro (Anual)", descripcion: "Edición de video premium anual", precio: 69.90, duracionMeses: 12, categoria: "Software", imagenUrl: "https://upload.wikimedia.org/wikipedia/commons/f/f0/Capcut-logo.svg" },
+          { id: 3, nombre: "ESET Internet Security", descripcion: "Activación retail de 365 días", precio: 39.90, duracionMeses: 12, categoria: "Software", imagenUrl: "https://upload.wikimedia.org/wikipedia/commons/c/c9/ESET_logo.png" },
+          { id: 4, font_bold: "Windows 11 Pro", nombre: "Windows 11 Pro", descripcion: "Licencia OEM enlazada al hardware del equipo", precio: 29.90, duracionMeses: 0, categoria: "Software", imagenUrl: "https://upload.wikimedia.org/wikipedia/commons/8/87/Windows_logo_-_2021.svg" },
+          { id: 5, nombre: "ChatGPT Plus (1 Mes)", descripcion: "Acceso compartido perfil premium", precio: 19.90, duracionMeses: 1, categoria: "IA", imagenUrl: "https://upload.wikimedia.org/wikipedia/commons/0/04/ChatGPT_logo.svg" },
+          { id: 6, nombre: "Netflix Premium (1 Mes)", descripcion: "Cuenta completa o pantalla ultra HD", precio: 15.00, duracionMeses: 1, categoria: "Streaming", imagenUrl: "https://upload.wikimedia.org/wikipedia/commons/7/75/Netflix_icon.svg" },
+          { id: 7, nombre: "HBO Max (1 Mes)", descripcion: "Perfil de streaming mensual", precio: 12.00, duracionMeses: 1, categoria: "Streaming", imagenUrl: "https://upload.wikimedia.org/wikipedia/commons/1/17/HBO_Max_Logo.svg" }
         ]);
       } finally {
         setLoading(false);
@@ -144,7 +145,7 @@ export default function Catalogo() {
               >
                 {/* Imagen */}
                 <div className="relative w-full aspect-square overflow-hidden bg-slate-950 rounded-lg">
-                  <img
+                  <CachedImage
                     src={prod.imagenUrl || 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=300&q=80'}
                     onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=300&q=80'; }}
                     alt={prod.nombre}
