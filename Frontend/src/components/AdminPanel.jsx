@@ -173,6 +173,14 @@ export default function AdminPanel() {
     }));
   };
 
+  const handleRemoveItemFromEdit = (productoId) => {
+    if (editOrderItems.length === 1) {
+      alert("Para remover todos los productos, por favor utiliza el botón de Cancelar Orden principal");
+      return;
+    }
+    setEditOrderItems(prev => prev.filter(item => item.productoId !== productoId));
+  };
+
   const submitEditarOrden = async (ordenId) => {
     try {
       const response = await fetch(`${API_URL}/api/admin/ordenes/${ordenId}/editar`, {
@@ -338,13 +346,6 @@ export default function AdminPanel() {
     } finally {
       setLoadingReportes(false);
     }
-  };
-
-  // --- UTILERIAS ---
-  const formatearFecha = (fechaStr) => {
-    if (!fechaStr) return '';
-    const f = new Date(fechaStr);
-    return f.toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' });
   };
 
   // --- FILTER CLIENTES ---
@@ -608,7 +609,7 @@ export default function AdminPanel() {
                           </td>
                         </tr>
                         
-                        {/* Fila de ingreso controlado de claves */}
+                        {/* Fila de ingreso controlado de claves (Textarea Multilínea) */}
                         {activeOrderInputId === ord.id && (
                           <tr className="bg-slate-950/40">
                             <td colSpan="6" className="px-6 py-4">
@@ -617,17 +618,17 @@ export default function AdminPanel() {
                                   <Key className="w-3.5 h-3.5" />
                                   Ingreso de Claves de Licencia - Orden #{ord.id}
                                 </h4>
-                                <div className="grid grid-cols-1 gap-3">
+                                <div className="grid grid-cols-1 gap-4">
                                   {ord.detalles.map((d) => (
-                                    <div key={d.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-900 p-3 rounded-lg border border-slate-800">
-                                      <span className="text-xs font-bold text-slate-300">{d.producto?.nombre}</span>
-                                      <input
-                                        type="text"
+                                    <div key={d.id} className="flex flex-col gap-2 bg-slate-900 p-3 rounded-lg border border-slate-800">
+                                      <span className="text-xs font-bold text-slate-350">{d.producto?.nombre}</span>
+                                      <textarea
+                                        rows={3}
                                         required
-                                        placeholder="Ingresa la clave de activación del proveedor..."
+                                        placeholder="Ingresa la clave o credenciales de activación (puedes ingresar varias líneas)..."
                                         value={clavesForm[d.id] || ''}
                                         onChange={(e) => handleClaveChange(d.id, e.target.value)}
-                                        className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-sky-500 w-full sm:w-80 font-mono"
+                                        className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-sky-500 w-full font-mono resize-y"
                                       />
                                     </div>
                                   ))}
@@ -652,7 +653,7 @@ export default function AdminPanel() {
                           </tr>
                         )}
 
-                        {/* Fila para editar cantidades de orden pendiente */}
+                        {/* Fila para editar cantidades de orden pendiente con botón de eliminar ítems */}
                         {editingOrderInputId === ord.id && (
                           <tr className="bg-slate-950/40">
                             <td colSpan="6" className="px-6 py-4">
@@ -665,19 +666,32 @@ export default function AdminPanel() {
                                   {editOrderItems.map((item) => (
                                     <div key={item.productoId} className="flex items-center justify-between gap-4 bg-slate-900 p-3 rounded-lg border border-slate-800">
                                       <span className="text-xs font-bold text-slate-350">{item.nombre}</span>
-                                      <div className="flex items-center bg-slate-950 border border-slate-800 rounded-lg">
+                                      <div className="flex items-center gap-3">
+                                        <div className="flex items-center bg-slate-950 border border-slate-800 rounded-lg">
+                                          <button
+                                            type="button"
+                                            onClick={() => handleEditQuantityChange(item.productoId, -1)}
+                                            className="px-2 py-1 text-slate-400 hover:text-slate-200"
+                                          >
+                                            -
+                                          </button>
+                                          <span className="px-3 text-xs font-bold text-slate-200">{item.cantidad}</span>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleEditQuantityChange(item.productoId, 1)}
+                                            className="px-2 py-1 text-slate-400 hover:text-slate-200"
+                                          >
+                                            +
+                                          </button>
+                                        </div>
                                         <button
-                                          onClick={() => handleEditQuantityChange(item.productoId, -1)}
-                                          className="px-2 py-1 text-slate-400 hover:text-slate-200"
+                                          type="button"
+                                          onClick={() => handleRemoveItemFromEdit(item.productoId)}
+                                          className="text-red-500 hover:text-red-400 ml-4 font-bold text-xs flex items-center gap-1 active:scale-95"
+                                          title="Eliminar ítem"
                                         >
-                                          -
-                                        </button>
-                                        <span className="px-3 text-xs font-bold text-slate-200">{item.cantidad}</span>
-                                        <button
-                                          onClick={() => handleEditQuantityChange(item.productoId, 1)}
-                                          className="px-2 py-1 text-slate-400 hover:text-slate-200"
-                                        >
-                                          +
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                          Eliminar
                                         </button>
                                       </div>
                                     </div>
@@ -1101,7 +1115,6 @@ export default function AdminPanel() {
                 ) : (
                   <div className="space-y-4">
                     {reportes.licenciasPorCategoria.map((cat, index) => {
-                      // Total sum logic
                       const total = reportes.licenciasPorCategoria.reduce((sum, item) => sum + item.cantidad, 0);
                       const porcentaje = total > 0 ? (cat.cantidad / total) * 100 : 0;
                       
