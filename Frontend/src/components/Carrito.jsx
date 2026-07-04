@@ -50,11 +50,25 @@ export default function Carrito() {
 
       const data = await response.json();
       
-      // Guardamos la URL de WhatsApp devuelta por el Backend
-      setRedirectUrl(data.redirectUrl);
+      // Generar URL de WhatsApp dirigida al número de soporte 51984497138
+      const whatsappAdmin = '51984497138';
+      const mensajeWhatsApp = encodeURIComponent(
+        `¡Hola Informatics! He registrado mi pedido en la web.\n\n` +
+        `*Pedido N°:* #${data.ordenId || data.id}\n` +
+        `*Cliente:* {${user.nombre}}\n` +
+        `*Total:* S/ ${cartTotal.toFixed(2)}\n\n` +
+        `Por favor, indíquenme las cuentas de pago para recibir mis accesos.`
+      );
+
+      const whatsappUrl = `https://api.whatsapp.com/send?phone=${whatsappAdmin}&text=${mensajeWhatsApp}`;
+      
+      // Abrir inmediatamente WhatsApp en una nueva pestaña
+      window.open(whatsappUrl, '_blank');
+      
+      setRedirectUrl(whatsappUrl);
       setShowModal(true);
       
-      // Limpiar el carrito de compras local
+      // Limpiar el carrito de compras local al final de la secuencia
       clearCart();
     } catch (error) {
       console.error("Error en checkout:", error);
@@ -65,14 +79,13 @@ export default function Carrito() {
   };
 
   const handleRedirect = () => {
-    // Verificación lógica estricta del elemento modal antes de redirigir
     if (showModal) {
       window.open(redirectUrl, '_blank');
       setShowModal(false);
     }
   };
 
-  if (cartItems.length === 0) {
+  if (cartItems.length === 0 && !showModal) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-16 text-center">
         <div className="bg-slate-900 border border-slate-800 rounded-3xl p-12 flex flex-col items-center max-w-xl mx-auto shadow-2xl">
@@ -221,7 +234,6 @@ export default function Carrito() {
           className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4"
           id="modal-success-overlay"
         >
-          {/* Validación lógica estricta del elemento modal */}
           <div
             ref={successModalRef}
             className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md shadow-2xl p-8 text-center space-y-6"
@@ -241,12 +253,20 @@ export default function Carrito() {
               </p>
             </div>
 
-            <button
-              onClick={handleRedirect}
-              className="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-3.5 rounded-xl transition-all duration-300 shadow-lg hover:shadow-emerald-500/20"
-            >
-              Ir a WhatsApp Corporativo
-            </button>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={handleRedirect}
+                className="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-3.5 rounded-xl transition-all duration-300 shadow-lg hover:shadow-emerald-500/20"
+              >
+                Ir a WhatsApp Corporativo
+              </button>
+              <button
+                onClick={() => setShowModal(false)}
+                className="w-full bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200 py-2.5 rounded-xl text-xs transition-all font-medium"
+              >
+                Cerrar Ventana
+              </button>
+            </div>
           </div>
         </div>
       )}

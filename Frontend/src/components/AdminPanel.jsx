@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useCart } from '../context/CartContext';
-import { FileText, Key, AlertTriangle, CheckSquare, RefreshCw, ShieldAlert, CheckCircle2, ShoppingBag } from 'lucide-react';
+import { FileText, Key, AlertTriangle, CheckSquare, RefreshCw, ShieldAlert, CheckCircle2 } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import { API_URL } from '../services/api';
 
@@ -83,6 +83,31 @@ export default function AdminPanel() {
     } catch (err) {
       console.error("Error al procesar completado de orden:", err);
       alert('Error en el servidor al completar la orden.');
+    }
+  };
+
+  const handleCancelarOrden = async (ordenId) => {
+    if (!window.confirm('¿Está seguro de que desea cancelar esta orden de forma definitiva?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/api/admin/ordenes/${ordenId}/cancelar`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al cancelar la orden');
+      }
+
+      alert('¡Orden cancelada con éxito!');
+      await fetchAdminData();
+    } catch (err) {
+      console.error("Error al cancelar la orden:", err);
+      alert('Error en el servidor al cancelar la orden.');
     }
   };
 
@@ -216,6 +241,8 @@ export default function AdminPanel() {
                         <span className={`inline-block text-xs font-bold px-3 py-1 rounded-full ${
                           ord.estado === 'Pendiente' 
                             ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' 
+                            : ord.estado === 'Cancelada'
+                            ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
                             : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                         }`}>
                           {ord.estado}
@@ -226,14 +253,24 @@ export default function AdminPanel() {
                           activeOrderInputId === ord.id ? (
                             <span className="text-xs text-slate-500 font-medium">Asignando claves...</span>
                           ) : (
-                            <button
-                              onClick={() => startCompletarOrden(ord)}
-                              className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-1.5 px-3 rounded-lg text-xs transition-all flex items-center gap-1"
-                            >
-                              <CheckSquare className="w-3.5 h-3.5" />
-                              Completar
-                            </button>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => startCompletarOrden(ord)}
+                                className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-1.5 px-3 rounded-lg text-xs transition-all flex items-center gap-1"
+                              >
+                                <CheckSquare className="w-3.5 h-3.5" />
+                                Completar
+                              </button>
+                              <button
+                                onClick={() => handleCancelarOrden(ord.id)}
+                                className="bg-red-600 hover:bg-red-500 text-white px-3 py-1.5 rounded-lg flex items-center gap-2 text-xs transition-all font-bold"
+                              >
+                                Cancelar
+                              </button>
+                            </div>
                           )
+                        ) : ord.estado === 'Cancelada' ? (
+                          <span className="text-xs text-rose-500 font-bold uppercase tracking-wider">Cancelada</span>
                         ) : (
                           <div className="space-y-1 max-w-xs">
                             {ord.detalles.map((d) => (

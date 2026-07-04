@@ -74,7 +74,7 @@ using (var scope = app.Services.CreateScope())
                 Email = adminEmail,
                 Rol = "Admin",
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword("AdminTemp2026!"),
-                WhatsApp = "51900000000"
+                WhatsApp = "51984497138"
             };
             db.Usuarios.Add(adminUser);
             db.SaveChanges();
@@ -279,7 +279,7 @@ app.MapPost("/api/ordenes", async (CrearOrdenDto dto, ApplicationDbContext db) =
         db.Ordenes.Add(orden);
         await db.SaveChangesAsync();
 
-        string whatsappAdmin = "51900000000"; 
+        string whatsappAdmin = "51984497138"; 
         string mensajeWhatsApp = Uri.EscapeDataString(
             $"¡Hola Informatics! He registrado mi pedido en la web.\n\n" +
             $"*Pedido N°:* #{orden.Id}\n" +
@@ -425,6 +425,33 @@ app.MapPut("/api/admin/ordenes/{ordenId}/completar", async (int ordenId, Complet
         var log = $"Fecha: {DateTime.UtcNow}\nComponente: AdminCompletarOrden\nMensaje: {ex.Message}\nTraza: {ex.StackTrace}";
         Console.WriteLine(log);
         return Results.Json(new { mensaje = "Error al completar la orden." }, statusCode: 500);
+    }
+});
+
+// 7b. BACKOFFICE: CANCELAR ORDEN
+app.MapPut("/api/admin/ordenes/{id}/cancelar", async (int id, ApplicationDbContext db) =>
+{
+    try
+    {
+        var orden = await db.Ordenes
+            .Include(o => o.Detalles)
+            .FirstOrDefaultAsync(o => o.Id == id);
+
+        if (orden == null)
+        {
+            return Results.NotFound(new { mensaje = "Orden no encontrada." });
+        }
+
+        orden.Estado = "Cancelada";
+        
+        await db.SaveChangesAsync();
+        return Results.Ok(new { mensaje = "Orden cancelada con éxito.", ordenId = orden.Id });
+    }
+    catch (Exception ex)
+    {
+        var log = $"Fecha: {DateTime.UtcNow}\nComponente: AdminCancelarOrden\nMensaje: {ex.Message}\nTraza: {ex.StackTrace}";
+        Console.WriteLine(log);
+        return Results.Json(new { mensaje = "Error al cancelar la orden." }, statusCode: 500);
     }
 });
 
