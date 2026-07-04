@@ -10,12 +10,11 @@ builder.Services.ConfigureHttpJsonOptions(options => {
     options.SerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
 });
 
-// Configurar base de datos (SQL Server) usando connection string de appsettings
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
-    ?? "Server=(localdb)\\mssqllocaldb;Database=InformaticsDb;Trusted_Connection=True;MultipleActiveResultSets=true";
+// Configurar base de datos (PostgreSQL - Supabase) usando connection string de appsettings
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(connectionString));
+    options.UseNpgsql(connectionString));
 
 // Registrar el servicio en segundo plano para alertas de renovación
 builder.Services.AddHostedService<Backend.Services.WorkerRenovaciones>();
@@ -36,15 +35,15 @@ builder.Services.AddOpenApi();
 var app = builder.Build();
 
 // --- BLOQUE DE INICIALIZACIÓN CORREGIDO ---
+// --- BLOQUE DE INICIALIZACIÓN CORREGIDO PARA SUPABASE ---
 using (var scope = app.Services.CreateScope())
 {
     try
     {
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         
-        // Forzar la limpieza del sembrado anterior para refrescar las imágenes
-        db.Database.EnsureDeleted();
-        db.Database.EnsureCreated();
+        // Aplica las migraciones pendientes y crea las tablas si no existen sin borrar la BD
+        db.Database.Migrate();
         
         if (!db.Productos.Any())
         {
@@ -92,7 +91,6 @@ app.MapPost("/api/auth/register", async (Usuario usuario, ApplicationDbContext d
             return Results.Conflict(new { mensaje = "El correo electrónico ya está registrado." });
         }
 
-        // En producción se aplicaría un hash criptográfico robusto
         usuario.PasswordHash = BCrypt.Net.BCrypt.HashPassword(usuario.PasswordHash);
         db.Usuarios.Add(usuario);
         await db.SaveChangesAsync();
@@ -123,7 +121,6 @@ app.MapPost("/api/auth/login", async (LoginDto loginDto, ApplicationDbContext db
             return Results.Unauthorized();
         }
 
-        // Retornar información básica y token simulado (JWT esqueleto)
         var tokenSimulado = $"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.usuario_{usuario.Id}_{usuario.Rol}";
         return Results.Ok(new { 
             token = tokenSimulado, 
@@ -205,8 +202,7 @@ app.MapPost("/api/ordenes", async (CrearOrdenDto dto, ApplicationDbContext db) =
         db.Ordenes.Add(orden);
         await db.SaveChangesAsync();
 
-        // Construir enlace de WhatsApp prellenado para coordinar entrega manual (Mago de Oz)
-        string whatsappAdmin = "51900000000"; // Número corporativo de Informatics
+        string whatsappAdmin = "51900000000"; 
         string mensajeWhatsApp = Uri.EscapeDataString(
             $"¡Hola Informatics! He registrado mi pedido en la web.\n\n" +
             $"*Pedido N°:* #{orden.Id}\n" +
@@ -302,7 +298,7 @@ app.MapGet("/api/admin/ordenes", async (ApplicationDbContext db) =>
     }
 });
 
-// 7. BACKOFFICE: COMPLETAR ORDEN Y ENTRADA DE CLAVE (Desencadena cálculos de vencimiento)
+// 7. BACKOFFICE: COMPLETAR ORDEN Y ENTRADA DE CLAVE
 app.MapPut("/api/admin/ordenes/{ordenId}/completar", async (int ordenId, CompletarOrdenDto dto, ApplicationDbContext db) =>
 {
     try
@@ -321,7 +317,6 @@ app.MapPut("/api/admin/ordenes/{ordenId}/completar", async (int ordenId, Complet
         
         foreach (var detalle in orden.Detalles)
         {
-            // Si el administrador provee claves específicas por producto en el body
             if (dto.ClavesPorDetalle != null && dto.ClavesPorDetalle.TryGetValue(detalle.Id, out var clave))
             {
                 detalle.ClaveEntregada = clave;
@@ -333,17 +328,16 @@ app.MapPut("/api/admin/ordenes/{ordenId}/completar", async (int ordenId, Complet
 
             detalle.FechaActivacion = DateTime.UtcNow;
 
-            // Calcular fecha de vencimiento según la duración del producto
             if (detalle.Producto != null && detalle.Producto.DuracionMeses > 0)
             {
                 detalle.FechaVencimiento = DateTime.UtcNow.AddMonths(detalle.Producto.DuracionMeses);
             }
             else
             {
-                detalle.FechaVencimiento = null; // Perpetuo
+                detalle.FechaVencimiento = null; 
             }
 
-            detalle.AlertaEnviada = false; // Permitir que el motor vuelva a evaluar este nuevo producto
+            detalle.AlertaEnviada = false; 
         }
 
         await db.SaveChangesAsync();
@@ -397,4 +391,3 @@ public record LoginDto(string Email, string Password);
 public record ItemOrdenDto(int ProductoId, int Cantidad);
 public record CrearOrdenDto(int UsuarioId, List<ItemOrdenDto> Items);
 public record CompletarOrdenDto(Dictionary<int, string>? ClavesPorDetalle);
-

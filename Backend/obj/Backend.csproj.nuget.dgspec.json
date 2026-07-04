@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\GONZALESSILVA\\Desktop\\TiendaOnlineInformatics\\BACKEND\\Backend.csproj": {}
+    "C:\\Users\\GONZALESSILVA\\Desktop\\TiendaOnlineInformatics\\Backend\\Backend.csproj": {}
   },
   "projects": {
-    "C:\\Users\\GONZALESSILVA\\Desktop\\TiendaOnlineInformatics\\BACKEND\\Backend.csproj": {
+    "C:\\Users\\GONZALESSILVA\\Desktop\\TiendaOnlineInformatics\\Backend\\Backend.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\GONZALESSILVA\\Desktop\\TiendaOnlineInformatics\\BACKEND\\Backend.csproj",
+        "projectUniqueName": "C:\\Users\\GONZALESSILVA\\Desktop\\TiendaOnlineInformatics\\Backend\\Backend.csproj",
         "projectName": "Backend",
-        "projectPath": "C:\\Users\\GONZALESSILVA\\Desktop\\TiendaOnlineInformatics\\BACKEND\\Backend.csproj",
+        "projectPath": "C:\\Users\\GONZALESSILVA\\Desktop\\TiendaOnlineInformatics\\Backend\\Backend.csproj",
         "packagesPath": "C:\\Users\\GONZALESSILVA\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\GONZALESSILVA\\Desktop\\TiendaOnlineInformatics\\BACKEND\\obj\\",
+        "outputPath": "C:\\Users\\GONZALESSILVA\\Desktop\\TiendaOnlineInformatics\\Backend\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\GONZALESSILVA\\AppData\\Roaming\\NuGet\\NuGet.Config"
@@ -58,9 +58,19 @@
               "target": "Package",
               "version": "[10.0.9, )"
             },
+            "Microsoft.EntityFrameworkCore.Design": {
+              "include": "Runtime, Build, Native, ContentFiles, Analyzers, BuildTransitive",
+              "suppressParent": "All",
+              "target": "Package",
+              "version": "[10.0.9, )"
+            },
             "Microsoft.EntityFrameworkCore.SqlServer": {
               "target": "Package",
               "version": "[10.0.9, )"
+            },
+            "Npgsql.EntityFrameworkCore.PostgreSQL": {
+              "target": "Package",
+              "version": "[10.0.2, )"
             }
           },
           "imports": [
