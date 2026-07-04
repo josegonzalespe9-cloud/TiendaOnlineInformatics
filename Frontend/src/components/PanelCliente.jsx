@@ -109,7 +109,7 @@ export default function PanelCliente() {
         </div>
 
         <div className="flex gap-3 z-10 w-full md:w-auto">
-          {user.rol === 'Administrador' && (
+          {(user.rol === 'Admin' || user.rol === 'Administrador') && (
             <a
               href="/admin"
               className="w-full md:w-auto bg-slate-950 border border-slate-800 hover:border-sky-500/50 text-slate-300 hover:text-sky-400 font-bold px-6 py-3 rounded-xl transition-all duration-300 text-sm flex items-center justify-center gap-2"

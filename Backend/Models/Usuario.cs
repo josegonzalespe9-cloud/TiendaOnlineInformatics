@@ -29,7 +29,7 @@ public class Usuario
 
     [Required]
     [MaxLength(20)]
-    public string Rol { get; set; } = "Cliente"; // "Cliente" o "Administrador"
+    public string Rol { get; set; } = "Cliente"; // "Cliente" o "Admin"
 
     [JsonIgnore]
     public ICollection<Orden> Ordenes { get; set; } = new List<Orden>();

@@ -2,6 +2,9 @@ using Microsoft.EntityFrameworkCore;
 using Backend.Data;
 using Backend.Models;
 using System.Text.Json.Serialization;
+using System.Text;
+using System.Text.Json;
+using System.Security.Cryptography;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -35,7 +38,7 @@ builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
-// --- BLOQUE DE INICIALIZACIÓN CORREGIDO PARA SUPABASE ---
+// --- BLOQUE DE INICIALIZACIÓN Y DATA SEEDING ---
 using (var scope = app.Services.CreateScope())
 {
     try
@@ -45,7 +48,7 @@ using (var scope = app.Services.CreateScope())
         // Aplica las migraciones pendientes y crea las tablas si no existen sin borrar la BD
         db.Database.Migrate();
 
-        // Cargar y ejecutar el script SQL alter_imagen_url_length.sql directamente
+        // Cargar y ejecutar el script SQL alter_imagen_url_length.sql directamente si existe
         var sqlPath = Path.Combine(app.Environment.ContentRootPath, "Data", "alter_imagen_url_length.sql");
         if (File.Exists(sqlPath))
         {
@@ -60,70 +63,76 @@ using (var scope = app.Services.CreateScope())
                 Console.WriteLine($"Error al ejecutar script SQL: {sqlEx.Message}");
             }
         }
-        else
+
+        // Semilla del Usuario Administrador
+        var adminEmail = "admin@informatics.com";
+        if (!db.Usuarios.Any(u => u.Email == adminEmail))
         {
-            Console.WriteLine($"Advertencia: No se encontró el script SQL en {sqlPath}");
+            var adminUser = new Usuario
+            {
+                Nombre = "Admin Informatics",
+                Email = adminEmail,
+                Rol = "Admin",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("AdminTemp2026!"),
+                WhatsApp = "51900000000"
+            };
+            db.Usuarios.Add(adminUser);
+            db.SaveChanges();
+            Console.WriteLine("Usuario administrador semilla registrado con éxito.");
         }
 
-        var urlsMapeadas = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        // Semilla del Catálogo Completo (23 Productos)
+        var catalogToSeed = new List<Producto>
         {
-            { "Canva Pro (Anual)", "/canva.png" },
-            { "CapCut Pro (Anual)", "/capcut.png" },
-            { "ESET Internet Security", "/eset.png" },
-            { "Windows 11 Pro", "/windows.png" },
-            { "ChatGPT Plus (1 Mes)", "/chatgpt.png" },
-            { "Netflix Premium (1 Mes)", "/netflix.png" },
-            { "HBO Max (1 Mes)", "/hbomax.png" }
+            // Anuales (DuracionMeses = 12, Categoria = "Software")
+            new Producto { Nombre = "Canva Pro (Anual)", Descripcion = "Acceso premium administrado mediante equipo", Precio = 49.90m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/canva_pro_anual.png" },
+            new Producto { Nombre = "CapCut Pro (Anual)", Descripcion = "Edición de video premium anual", Precio = 69.90m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/capcut_pro_anual.png" },
+            new Producto { Nombre = "ESET Internet Security", Descripcion = "Activación retail de 365 días", Precio = 39.90m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/eset_internet_security.png" },
+            new Producto { Nombre = "Office 365 A3", Descripcion = "Suscripción anual educativa de Office 365", Precio = 59.90m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/office_365_a3.png" },
+            new Producto { Nombre = "Adobe Creative Cloud", Descripcion = "Acceso completo a todas las aplicaciones creativas", Precio = 120.00m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/adobe_creative_cloud.png" },
+            new Producto { Nombre = "Autodesk Standard", Descripcion = "Licencia oficial Autodesk Suite Standard", Precio = 150.00m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/autodesk_standard.png" },
+            new Producto { Nombre = "Autodesk Revit", Descripcion = "Diseño arquitectónico y modelado BIM profesional", Precio = 180.00m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/autodesk_revit.png" },
+            new Producto { Nombre = "AutoCAD", Descripcion = "Diseño asistido por computadora 2D y 3D", Precio = 190.00m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/autocad.png" },
+
+            // Mensuales (DuracionMeses = 1, Categoria = "IA" o "Streaming")
+            new Producto { Nombre = "ChatGPT Plus (1 Mes)", Descripcion = "Cuenta compartida perfil premium", Precio = 19.90m, DuracionMeses = 1, Categoria = "IA", ImagenUrl = "/chatgpt_plus_1_mes.png" },
+            new Producto { Nombre = "Gemini Advanced (1 Mes)", Descripcion = "Acceso premium a Gemini 1.5 Pro y Ultra", Precio = 22.00m, DuracionMeses = 1, Categoria = "IA", ImagenUrl = "/gemini_advanced_1_mes.png" },
+            new Producto { Nombre = "Supergrok (1 Mes)", Descripcion = "Acceso premium a Grok de xAI", Precio = 15.00m, DuracionMeses = 1, Categoria = "IA", ImagenUrl = "/supergrok_1_mes.png" },
+            new Producto { Nombre = "YouTube Premium (1 Mes)", Descripcion = "Sin anuncios y reproducción en segundo plano", Precio = 10.00m, DuracionMeses = 1, Categoria = "Streaming", ImagenUrl = "/youtube_premium_1_mes.png" },
+            new Producto { Nombre = "Spotify Premium (1 Mes)", Descripcion = "Música sin anuncios y modo sin conexión", Precio = 9.90m, DuracionMeses = 1, Categoria = "Streaming", ImagenUrl = "/spotify_premium_1_mes.png" },
+            new Producto { Nombre = "Netflix Premium (1 Mes)", Descripcion = "Cuenta completa o pantalla ultra HD", Precio = 15.00m, DuracionMeses = 1, Categoria = "Streaming", ImagenUrl = "/netflix_premium_1_mes.png" },
+            new Producto { Nombre = "HBO Max (1 Mes)", Descripcion = "Perfil de streaming mensual", Precio = 12.00m, DuracionMeses = 1, Categoria = "Streaming", ImagenUrl = "/hbo_max_1_mes.png" },
+            new Producto { Nombre = "Prime Video (1 Mes)", Descripcion = "Películas y series exclusivas de Amazon", Precio = 8.00m, DuracionMeses = 1, Categoria = "Streaming", ImagenUrl = "/prime_video_1_mes.png" },
+            new Producto { Nombre = "Paramount (1 Mes)", Descripcion = "Suscripción mensual de Paramount+", Precio = 7.00m, DuracionMeses = 1, Categoria = "Streaming", ImagenUrl = "/paramount_1_mes.png" },
+
+            // Perpetuos (DuracionMeses = 0, Categoria = "Software")
+            new Producto { Nombre = "Windows 10 Pro", Descripcion = "Licencia OEM enlazada al hardware", Precio = 25.00m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = "/windows_10_pro.png" },
+            new Producto { Nombre = "Windows 11 Pro", Descripcion = "Licencia OEM enlazada al hardware", Precio = 29.90m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = "/windows_11_pro.png" },
+            new Producto { Nombre = "Office Profesional Plus 2021", Descripcion = "Licencia perpetua de Office 2021", Precio = 35.00m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = "/office_profesional_plus_2021.png" },
+            new Producto { Nombre = "Office Profesional Plus 2024", Descripcion = "Licencia perpetua de Office 2024", Precio = 45.00m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = "/office_profesional_plus_2024.png" },
+            new Producto { Nombre = "Nitro 14", Descripcion = "Editor y creador de PDF profesional", Precio = 30.00m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = "/nitro_14.png" },
+            new Producto { Nombre = "Filmora", Descripcion = "Editor de video simple y creativo perpetuo", Precio = 40.00m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = "/filmora.png" }
         };
-        
-        if (!db.Productos.Any())
+
+        foreach (var p in catalogToSeed)
         {
-            db.Productos.AddRange(
-                new Producto { Nombre = "Canva Pro (Anual)", Descripcion = "Acceso premium administrado mediante equipo", Precio = 49.90m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = urlsMapeadas["Canva Pro (Anual)"] },
-                new Producto { Nombre = "CapCut Pro (Anual)", Descripcion = "Edición de video premium anual", Precio = 69.90m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = urlsMapeadas["CapCut Pro (Anual)"] },
-                new Producto { Nombre = "ESET Internet Security", Descripcion = "Activación retail de 365 días", Precio = 39.90m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = urlsMapeadas["ESET Internet Security"] },
-                new Producto { Nombre = "Windows 11 Pro", Descripcion = "Licencia OEM enlazada al hardware", Precio = 29.90m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = urlsMapeadas["Windows 11 Pro"] },
-                new Producto { Nombre = "ChatGPT Plus (1 Mes)", Descripcion = "Cuenta compartida perfil premium", Precio = 19.90m, DuracionMeses = 1, Categoria = "IA", ImagenUrl = urlsMapeadas["ChatGPT Plus (1 Mes)"] },
-                new Producto { Nombre = "Netflix Premium (1 Mes)", Descripcion = "Cuenta completa o pantalla ultra HD", Precio = 15.00m, DuracionMeses = 1, Categoria = "Streaming", ImagenUrl = urlsMapeadas["Netflix Premium (1 Mes)"] },
-                new Producto { Nombre = "HBO Max (1 Mes)", Descripcion = "Perfil de streaming mensual", Precio = 12.00m, DuracionMeses = 1, Categoria = "Streaming", ImagenUrl = urlsMapeadas["HBO Max (1 Mes)"] }
-            );
-            db.SaveChanges();
-            Console.WriteLine("Base de datos sembrada con URLs relativas correctamente.");
-        }
-        else
-        {
-            // Lógica de reparación automática de URLs antiguas de internet o de desarrollo
-            var productosExistentes = db.Productos.ToList();
-            bool huboCambios = false;
-            foreach (var prod in productosExistentes)
+            var existingProd = db.Productos.FirstOrDefault(prod => prod.Nombre == p.Nombre);
+            if (existingProd == null)
             {
-                if (string.IsNullOrWhiteSpace(prod.ImagenUrl) || 
-                    prod.ImagenUrl.Contains("localhost") || 
-                    prod.ImagenUrl.Contains("127.0.0.1") ||
-                    prod.ImagenUrl.StartsWith("http://") ||
-                    prod.ImagenUrl.StartsWith("https://"))
-                {
-                    if (urlsMapeadas.TryGetValue(prod.Nombre, out var nuevaUrl))
-                    {
-                        prod.ImagenUrl = nuevaUrl;
-                        huboCambios = true;
-                        Console.WriteLine($"Reparada imagen del producto '{prod.Nombre}' a ruta relativa local: {nuevaUrl}");
-                    }
-                    else
-                    {
-                        var fallbackUrl = "/canva.png";
-                        prod.ImagenUrl = fallbackUrl;
-                        huboCambios = true;
-                        Console.WriteLine($"Reparada imagen del producto '{prod.Nombre}' con fallback URL: {fallbackUrl}");
-                    }
-                }
+                db.Productos.Add(p);
             }
-            if (huboCambios)
+            else
             {
-                db.SaveChanges();
-                Console.WriteLine("Se guardaron las correcciones de URLs relativas en la base de datos.");
+                // Actualizar los datos del catálogo por si cambiaron de nombre o especificaciones
+                existingProd.Descripcion = p.Descripcion;
+                existingProd.Precio = p.Precio;
+                existingProd.DuracionMeses = p.DuracionMeses;
+                existingProd.Categoria = p.Categoria;
+                existingProd.ImagenUrl = p.ImagenUrl;
             }
         }
+        db.SaveChanges();
+        Console.WriteLine("Catálogo oficial sembrado y actualizado correctamente en la base de datos.");
     }
     catch (Exception ex)
     {
@@ -187,9 +196,11 @@ app.MapPost("/api/auth/login", async (LoginDto loginDto, ApplicationDbContext db
             return Results.Unauthorized();
         }
 
-        var tokenSimulado = $"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.usuario_{usuario.Id}_{usuario.Rol}";
+        // Generar un token JWT real firmado
+        var token = JwtHelper.GenerarToken(usuario.Id, usuario.Email, usuario.Rol);
+
         return Results.Ok(new { 
-            token = tokenSimulado, 
+            token = token, 
             usuario = new { id = usuario.Id, nombre = usuario.Nombre, email = usuario.Email, whatsapp = usuario.WhatsApp, rol = usuario.Rol } 
         });
     }
@@ -217,7 +228,7 @@ app.MapGet("/api/productos", async (ApplicationDbContext db) =>
     }
 });
 
-// 4. CREAR ORDEN (Mago de Oz - Redirección a WhatsApp)
+// 4. CREAR ORDEN
 app.MapPost("/api/ordenes", async (CrearOrdenDto dto, ApplicationDbContext db) =>
 {
     try
@@ -342,7 +353,7 @@ app.MapGet("/api/ordenes/cliente/{usuarioId}", async (int usuarioId, Application
     }
 });
 
-// 6. BACKOFFICE: GESTIÓN DE ÓRDENES PENDIENTES
+// 6. BACKOFFICE: GESTIÓN DE ÓRDENES
 app.MapGet("/api/admin/ordenes", async (ApplicationDbContext db) =>
 {
     try
@@ -417,18 +428,21 @@ app.MapPut("/api/admin/ordenes/{ordenId}/completar", async (int ordenId, Complet
     }
 });
 
-// 8. DASHBOARD INTERNO: ALERTAS DE RENOVACIÓN DE 5 DÍAS
+// 8. DASHBOARD INTERNO: ALERTAS DE RENOVACIÓN DE MENOS O IGUAL A 5 DÍAS
 app.MapGet("/api/admin/renovaciones", async (ApplicationDbContext db) =>
 {
     try
     {
+        // Vencimiento menor o igual a 5 días
         DateTime targetDate = DateTime.UtcNow.Date.AddDays(5);
         
         var renovaciones = await db.DetalleOrdenes
             .Include(d => d.Producto)
             .Include(d => d.Orden)
                 .ThenInclude(o => o!.Usuario)
-            .Where(d => d.FechaVencimiento != null && d.FechaVencimiento.Value.Date == targetDate)
+            .Where(d => d.FechaVencimiento != null 
+                     && d.FechaVencimiento.Value.Date <= targetDate 
+                     && d.FechaVencimiento.Value.Date >= DateTime.UtcNow.Date)
             .Select(d => new {
                 detalleId = d.Id,
                 clienteNombre = d.Orden!.Usuario!.Nombre,
@@ -457,3 +471,43 @@ public record LoginDto(string Email, string Password);
 public record ItemOrdenDto(int ProductoId, int Cantidad);
 public record CrearOrdenDto(int UsuarioId, List<ItemOrdenDto> Items);
 public record CompletarOrdenDto(Dictionary<int, string>? ClavesPorDetalle);
+
+// --- JWT TOKEN GENERATION HELPER ---
+public static class JwtHelper
+{
+    private static string Base64UrlEncode(byte[] input)
+    {
+        return Convert.ToBase64String(input)
+            .Replace("=", "")
+            .Replace('+', '-')
+            .Replace('/', '_');
+    }
+
+    public static string GenerarToken(int usuarioId, string email, string rol)
+    {
+        var header = new { alg = "HS256", typ = "JWT" };
+        var payload = new Dictionary<string, object>
+        {
+            { "sub", usuarioId.ToString() },
+            { "email", email },
+            { "http://schemas.microsoft.com/ws/2008/06/identity/claims/role", rol },
+            { "exp", DateTimeOffset.UtcNow.AddHours(24).ToUnixTimeSeconds() }
+        };
+
+        string headerJson = JsonSerializer.Serialize(header);
+        string payloadJson = JsonSerializer.Serialize(payload);
+
+        string headerBase64 = Base64UrlEncode(Encoding.UTF8.GetBytes(headerJson));
+        string payloadBase64 = Base64UrlEncode(Encoding.UTF8.GetBytes(payloadJson));
+
+        string message = $"{headerBase64}.{payloadBase64}";
+        
+        string secret = "InformaticsSuperSecretKeyForJWTAuth2026";
+        using (var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret)))
+        {
+            byte[] signatureBytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(message));
+            string signatureBase64 = Base64UrlEncode(signatureBytes);
+            return $"{message}.{signatureBase64}";
+        }
+    }
+}

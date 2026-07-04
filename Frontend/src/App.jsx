@@ -7,6 +7,7 @@ import PanelCliente from './components/PanelCliente';
 import Login from './components/Login';
 import AdminPanel from './components/AdminPanel';
 import BotonSoporteFloat from './components/BotonSoporteFloat';
+import ProtectedRoute from './components/ProtectedRoute';
 import { ShoppingCart, User, ShieldAlert, LogOut, Code } from 'lucide-react';
 
 function Navigation() {
@@ -43,6 +44,16 @@ function Navigation() {
               Catálogo
             </Link>
 
+            {/* Botón exclusivo Panel Admin al lado de Catálogo */}
+            {user && (user.rol === 'Admin' || user.rol === 'Administrador') && (
+              <Link
+                to="/admin"
+                className="text-slate-350 hover:text-slate-100 text-sm font-medium transition-colors"
+              >
+                Panel Admin
+              </Link>
+            )}
+
             {/* Carrito Icono */}
             <Link
               to="/carrito"
@@ -68,7 +79,7 @@ function Navigation() {
                   Mi Panel
                 </Link>
 
-                {user.rol === 'Administrador' && (
+                {(user.rol === 'Admin' || user.rol === 'Administrador') && (
                   <Link
                     to="/admin"
                     className="flex items-center gap-1.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 px-4 py-2 rounded-xl text-xs font-semibold transition-all"
@@ -113,7 +124,11 @@ function MainLayout() {
           <Route path="/carrito" element={<Carrito />} />
           <Route path="/panel" element={<PanelCliente />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/admin" element={<AdminPanel />} />
+          <Route path="/admin" element={
+            <ProtectedRoute>
+              <AdminPanel />
+            </ProtectedRoute>
+          } />
         </Routes>
       </main>
 
