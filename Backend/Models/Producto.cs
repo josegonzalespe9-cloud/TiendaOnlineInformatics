@@ -30,4 +30,9 @@ public class Producto
 
     [MaxLength(2048)]
     public string ImagenUrl { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "El costo del proveedor es obligatorio")]
+    [Range(0.00, 10000.00, ErrorMessage = "El costo debe estar entre 0.00 y 10000.00")]
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal CostoProveedor { get; set; }
 }
