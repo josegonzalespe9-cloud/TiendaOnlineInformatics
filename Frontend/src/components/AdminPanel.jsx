@@ -64,13 +64,21 @@ export default function AdminPanel() {
   };
 
   const formatImageUrl = (url) => {
-    if (!url) return 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=300&q=80';
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      return url;
+    if (!url) return '/placeholder.png'; 
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+
+    // Si es una de tus imágenes estáticas de la tienda alojadas en el frontend:
+    const imagenesLocales = ['filmora', 'canva', 'adobe', 'autodesk', 'capcut', 'eset', 'chatgpt', 'office'];
+    const esLocal = imagenesLocales.some(img => url.toLowerCase().includes(img));
+
+    if (esLocal) {
+      return url.startsWith('/') ? url : `/${url}`; // Lo sirve Vercel de su propia carpeta public
     }
+
+    // Si no es local, se concatena limpiamente con el backend de Render:
     const baseUrl = API_URL.endsWith('/') ? API_URL.slice(0, -1) : API_URL;
-    const relativePath = url.startsWith('/') ? url : `/${url}`;
-    return `${baseUrl}${relativePath}`;
+    const cleanUrl = url.startsWith('/') ? url : `/${url}`;
+    return `${baseUrl}${cleanUrl}`;
   };
 
   // --- EFECTO DE CARGA INICIAL Y CAMBIO DE PESTAÑA ---
@@ -424,7 +432,7 @@ export default function AdminPanel() {
           </div>
           <div>
             <h1 className="text-2xl font-extrabold text-slate-100 tracking-tight">Panel Administrativo Backoffice</h1>
-            <p className="text-slate-400 text-sm mt-0.5">Control completo de licencias y monitoreo de WhatsApp</p>
+            <p className="text-slate-400 text-sm mt-0.5">Control completo de licencias and monitoreo de WhatsApp</p>
           </div>
         </div>
 
@@ -441,7 +449,7 @@ export default function AdminPanel() {
           {tab === 'productos' && (
             <button
               onClick={fetchProductos}
-              className="bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-300 p-3 rounded-xl transition-all"
+              className="bg-slate-955 border border-slate-800 hover:border-slate-700 text-slate-300 p-3 rounded-xl transition-all"
               title="Recargar Productos"
             >
               <RefreshCw className="w-5 h-5" />
@@ -530,7 +538,7 @@ export default function AdminPanel() {
                       <p className="text-sm text-slate-200 font-medium">
                         La cuenta de {ren.clienteNombre} vence en 5 días. Prepara el stock con el proveedor
                       </p>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-slate-505">
                         Producto: <span className="text-slate-400">{ren.productoNombre}</span> | Vence: {formatearFecha(ren.fechaVencimiento)}
                       </p>
                     </div>
@@ -540,7 +548,7 @@ export default function AdminPanel() {
                       )}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-slate-950 text-xs font-bold py-2 px-4 rounded-xl transition-all text-center"
+                      className="bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-slate-955 text-xs font-bold py-2 px-4 rounded-xl transition-all text-center"
                     >
                       Alertar WhatsApp
                     </a>
@@ -636,7 +644,7 @@ export default function AdminPanel() {
                                   </button>
                                   <button
                                     onClick={() => startEditarOrden(ord)}
-                                    className="bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold py-1.5 px-3 rounded-lg text-xs transition-all flex items-center gap-1 active:scale-95"
+                                    className="bg-sky-500 hover:bg-sky-400 text-slate-955 font-bold py-1.5 px-3 rounded-lg text-xs transition-all flex items-center gap-1 active:scale-95"
                                   >
                                     <Edit3 className="w-3.5 h-3.5" />
                                     Editar
@@ -760,7 +768,7 @@ export default function AdminPanel() {
                                   </button>
                                   <button
                                     onClick={() => submitEditarOrden(ord.id)}
-                                    className="bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs px-4 py-2 rounded-lg transition-all flex items-center gap-1"
+                                    className="bg-sky-500 hover:bg-sky-400 text-slate-955 font-bold text-xs px-4 py-2 rounded-lg transition-all flex items-center gap-1"
                                   >
                                     <Save className="w-3.5 h-3.5" />
                                     Actualizar Pedido
