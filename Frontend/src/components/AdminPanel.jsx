@@ -68,7 +68,9 @@ export default function AdminPanel() {
     if (url.startsWith('http://') || url.startsWith('https://')) {
       return url;
     }
-    return `${API_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+    const baseUrl = API_URL.endsWith('/') ? API_URL.slice(0, -1) : API_URL;
+    const relativePath = url.startsWith('/') ? url : `/${url}`;
+    return `${baseUrl}${relativePath}`;
   };
 
   // --- EFECTO DE CARGA INICIAL Y CAMBIO DE PESTAÑA ---
@@ -719,7 +721,7 @@ export default function AdminPanel() {
                                     <div key={item.productoId} className="flex items-center justify-between gap-4 bg-slate-900 p-3 rounded-lg border border-slate-800">
                                       <span className="text-xs font-bold text-slate-355">{item.nombre}</span>
                                       <div className="flex items-center gap-3">
-                                        <div className="flex items-center bg-slate-950 border border-slate-800 rounded-lg">
+                                        <div className="flex items-center bg-slate-955 border border-slate-800 rounded-lg">
                                           <button
                                             type="button"
                                             onClick={() => handleEditQuantityChange(item.productoId, -1)}
@@ -758,7 +760,7 @@ export default function AdminPanel() {
                                   </button>
                                   <button
                                     onClick={() => submitEditarOrden(ord.id)}
-                                    className="bg-sky-500 hover:bg-sky-400 text-slate-955 font-bold text-xs px-4 py-2 rounded-lg transition-all flex items-center gap-1"
+                                    className="bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs px-4 py-2 rounded-lg transition-all flex items-center gap-1"
                                   >
                                     <Save className="w-3.5 h-3.5" />
                                     Actualizar Pedido
@@ -1043,7 +1045,7 @@ export default function AdminPanel() {
             <div className="space-y-4">
               <div className="overflow-x-auto rounded-2xl border border-slate-800">
                 <table className="min-w-full divide-y divide-slate-800 text-sm text-left">
-                  <thead className="bg-slate-950 text-slate-400 uppercase text-xs tracking-wider">
+                  <thead className="bg-slate-955 text-slate-400 uppercase text-xs tracking-wider">
                     <tr>
                       <th className="px-6 py-4">Cliente</th>
                       <th className="px-6 py-4">Correo</th>
