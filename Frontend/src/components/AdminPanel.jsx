@@ -646,7 +646,7 @@ export default function AdminPanel() {
                                         placeholder="Ingresa la clave o credenciales de activación (puedes ingresar varias líneas)..."
                                         value={clavesForm[d.id] || ''}
                                         onChange={(e) => handleClaveChange(d.id, e.target.value)}
-                                        className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-sky-500 w-full font-mono resize-y"
+                                        className="bg-slate-955 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-sky-500 w-full font-mono resize-y"
                                       />
                                     </div>
                                   ))}
@@ -683,7 +683,7 @@ export default function AdminPanel() {
                                 <div className="grid grid-cols-1 gap-3">
                                   {editOrderItems.map((item) => (
                                     <div key={item.productoId} className="flex items-center justify-between gap-4 bg-slate-900 p-3 rounded-lg border border-slate-800">
-                                      <span className="text-xs font-bold text-slate-350">{item.nombre}</span>
+                                      <span className="text-xs font-bold text-slate-355">{item.nombre}</span>
                                       <div className="flex items-center gap-3">
                                         <div className="flex items-center bg-slate-950 border border-slate-800 rounded-lg">
                                           <button
@@ -761,120 +761,130 @@ export default function AdminPanel() {
             )}
           </div>
 
-          {/* Formulario de Agregar / Editar */}
+          {/* Formulario de Agregar / Editar (Modal Flotante Centrado) */}
           {showProductForm && (
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-r from-sky-500/5 to-transparent pointer-events-none" />
-              <h3 className="text-lg font-bold text-slate-100 mb-6 flex items-center gap-2">
-                <Package className="w-5 h-5 text-sky-400" />
-                {showProductForm === 'create' ? 'Nuevo Producto' : 'Editar Producto'}
-              </h3>
-              
-              <form onSubmit={submitProductForm} className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wide">Nombre del Producto</label>
-                  <input
-                    type="text"
-                    required
-                    value={productForm.nombre}
-                    onChange={(e) => handleProductInputChange('nombre', e.target.value)}
-                    className="w-full bg-slate-955 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-sky-500 transition-all text-sm"
-                    placeholder="Ej. Photoshop CC Anual"
-                  />
-                </div>
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+              <div className="bg-[#0f172a] border border-slate-800 rounded-xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto relative">
+                <button
+                  type="button"
+                  onClick={() => setShowProductForm(null)}
+                  className="absolute top-4 right-4 text-slate-400 hover:text-slate-200 transition-colors"
+                  title="Cerrar modal"
+                >
+                  <X className="w-5 h-5" />
+                </button>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wide">Categoría</label>
-                  <select
-                    value={productForm.categoria}
-                    onChange={(e) => handleProductInputChange('categoria', e.target.value)}
-                    className="w-full bg-slate-955 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:border-sky-500 transition-all text-sm"
-                  >
-                    <option value="Software">Software</option>
-                    <option value="Streaming">Streaming</option>
-                    <option value="IA">Inteligencia Artificial (IA)</option>
-                  </select>
-                </div>
+                <h3 className="text-lg font-bold text-slate-100 mb-6 flex items-center gap-2">
+                  <Package className="w-5 h-5 text-sky-400" />
+                  {showProductForm === 'create' ? 'Nuevo Producto' : 'Editar Producto'}
+                </h3>
+                
+                <form onSubmit={submitProductForm} className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wide">Nombre del Producto</label>
+                    <input
+                      type="text"
+                      required
+                      value={productForm.nombre}
+                      onChange={(e) => handleProductInputChange('nombre', e.target.value)}
+                      className="w-full bg-slate-955 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-sky-500 transition-all text-sm"
+                      placeholder="Ej. Photoshop CC Anual"
+                    />
+                  </div>
 
-                <div className="md:col-span-2">
-                  <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wide">Descripción Comercial</label>
-                  <textarea
-                    required
-                    rows="3"
-                    value={productForm.descripcion}
-                    onChange={(e) => handleProductInputChange('descripcion', e.target.value)}
-                    className="w-full bg-slate-955 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-sky-500 transition-all text-sm resize-none"
-                    placeholder="Introduce características del producto..."
-                  />
-                </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wide">Categoría</label>
+                    <select
+                      value={productForm.categoria}
+                      onChange={(e) => handleProductInputChange('categoria', e.target.value)}
+                      className="w-full bg-slate-955 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:border-sky-500 transition-all text-sm"
+                    >
+                      <option value="Software">Software</option>
+                      <option value="Streaming">Streaming</option>
+                      <option value="IA">Inteligencia Artificial (IA)</option>
+                    </select>
+                  </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wide">Duración en Meses (0 = Perpetuo)</label>
-                  <input
-                    type="number"
-                    required
-                    min="0"
-                    max="120"
-                    value={productForm.duracionMeses}
-                    onChange={(e) => handleProductInputChange('duracionMeses', parseInt(e.target.value) || 0)}
-                    className="w-full bg-slate-955 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:border-sky-500 transition-all text-sm"
-                  />
-                </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wide">Descripción Comercial</label>
+                    <textarea
+                      required
+                      rows="3"
+                      value={productForm.descripcion}
+                      onChange={(e) => handleProductInputChange('descripcion', e.target.value)}
+                      className="w-full bg-slate-955 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-sky-500 transition-all text-sm resize-none"
+                      placeholder="Introduce características del producto..."
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wide">Imagen Relativa (/nombre.png)</label>
-                  <input
-                    type="text"
-                    required
-                    value={productForm.imagenUrl}
-                    onChange={(e) => handleProductInputChange('imagenUrl', e.target.value)}
-                    className="w-full bg-slate-955 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-sky-500 transition-all text-sm font-mono"
-                    placeholder="/canva.png"
-                  />
-                </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wide">Duración en Meses (0 = Perpetuo)</label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      max="120"
+                      value={productForm.duracionMeses}
+                      onChange={(e) => handleProductInputChange('duracionMeses', parseInt(e.target.value) || 0)}
+                      className="w-full bg-slate-955 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:border-sky-500 transition-all text-sm"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wide">Precio de Venta (S/ )</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    required
-                    min="0.01"
-                    value={productForm.precio}
-                    onChange={(e) => handleProductInputChange('precio', parseFloat(e.target.value) || 0)}
-                    className="w-full bg-slate-955 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:border-sky-500 transition-all text-sm font-mono"
-                  />
-                </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wide">Imagen Relativa (/nombre.png)</label>
+                    <input
+                      type="text"
+                      required
+                      value={productForm.imagenUrl}
+                      onChange={(e) => handleProductInputChange('imagenUrl', e.target.value)}
+                      className="w-full bg-slate-955 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-sky-500 transition-all text-sm font-mono"
+                      placeholder="/canva.png"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wide">Costo del Proveedor (S/ )</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    required
-                    min="0.00"
-                    value={productForm.costoProveedor}
-                    onChange={(e) => handleProductInputChange('costoProveedor', parseFloat(e.target.value) || 0)}
-                    className="w-full bg-slate-955 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:border-sky-500 transition-all text-sm font-mono"
-                  />
-                </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wide">Precio de Venta (S/ )</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      min="0.01"
+                      value={productForm.precio}
+                      onChange={(e) => handleProductInputChange('precio', parseFloat(e.target.value) || 0)}
+                      className="w-full bg-slate-955 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:border-sky-500 transition-all text-sm font-mono"
+                    />
+                  </div>
 
-                <div className="md:col-span-2 flex justify-end gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowProductForm(null)}
-                    className="bg-slate-955 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200 text-xs px-5 py-3 rounded-xl transition-all"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    className="bg-emerald-500 hover:bg-emerald-400 text-slate-955 font-bold text-xs px-5 py-3 rounded-xl transition-all shadow-md active:scale-95"
-                  >
-                    Guardar Producto
-                  </button>
-                </div>
-              </form>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wide">Costo del Proveedor (S/ )</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      min="0.00"
+                      value={productForm.costoProveedor}
+                      onChange={(e) => handleProductInputChange('costoProveedor', parseFloat(e.target.value) || 0)}
+                      className="w-full bg-slate-955 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:border-sky-500 transition-all text-sm font-mono"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2 flex justify-end gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowProductForm(null)}
+                      className="bg-slate-955 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200 text-xs px-5 py-3 rounded-xl transition-all"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="bg-emerald-500 hover:bg-emerald-400 text-slate-955 font-bold text-xs px-5 py-3 rounded-xl transition-all shadow-md active:scale-95"
+                    >
+                      Guardar Producto
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
           )}
 
@@ -938,14 +948,14 @@ export default function AdminPanel() {
                           <div className="flex gap-2">
                             <button
                               onClick={() => handleEditClick(prod)}
-                              className="bg-slate-950 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 text-sky-400 p-2 rounded-lg transition-all"
+                              className="bg-slate-955 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 text-sky-400 p-2 rounded-lg transition-all"
                               title="Editar"
                             >
                               <Edit3 className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => deleteProduct(prod)}
-                              className="bg-slate-950 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 text-rose-500 p-2 rounded-lg transition-all"
+                              className="bg-slate-955 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 text-rose-500 p-2 rounded-lg transition-all"
                               title="Eliminar"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -981,7 +991,7 @@ export default function AdminPanel() {
                   setSearchClienteQuery(e.target.value);
                   setCurrentClientePage(1);
                 }}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-4 py-2 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-sky-500 transition-all"
+                className="w-full bg-slate-955 border border-slate-800 rounded-xl pl-10 pr-4 py-2 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-sky-500 transition-all"
               />
               <Search className="absolute left-3.5 top-2.5 text-slate-655 w-4 h-4" />
             </div>
@@ -1041,14 +1051,14 @@ export default function AdminPanel() {
                     <button
                       onClick={() => setCurrentClientePage(prev => Math.max(1, prev - 1))}
                       disabled={currentClientePage === 1}
-                      className="bg-slate-950 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 p-2 rounded-lg text-slate-400 disabled:opacity-40 transition-all active:scale-95"
+                      className="bg-slate-955 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 p-2 rounded-lg text-slate-400 disabled:opacity-40 transition-all active:scale-95"
                     >
                       <ChevronLeft className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => setCurrentClientePage(prev => Math.min(totalClientePages, prev + 1))}
                       disabled={currentClientePage === totalClientePages}
-                      className="bg-slate-950 hover:bg-slate-900 border border-slate-850 hover:border-slate-700 p-2 rounded-lg text-slate-400 disabled:opacity-40 transition-all active:scale-95"
+                      className="bg-slate-955 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 p-2 rounded-lg text-slate-400 disabled:opacity-40 transition-all active:scale-95"
                     >
                       <ChevronRight className="w-4 h-4" />
                     </button>
