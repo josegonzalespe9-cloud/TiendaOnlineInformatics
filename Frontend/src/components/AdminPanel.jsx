@@ -47,6 +47,30 @@ export default function AdminPanel() {
   const [reportes, setReportes] = useState(null);
   const [loadingReportes, setLoadingReportes] = useState(true);
 
+  // --- 0. FUNCIONES DE AYUDA / FORMATEO ---
+  const formatearFecha = (fechaStr) => {
+    if (!fechaStr) return 'N/A';
+    try {
+      const fecha = new Date(fechaStr);
+      return fecha.toLocaleDateString('es-PE', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    } catch (e) {
+      console.error("Error al formatear fecha:", e);
+      return fechaStr;
+    }
+  };
+
+  const formatImageUrl = (url) => {
+    if (!url) return 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=300&q=80';
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    return `${API_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+  };
+
   // --- EFECTO DE CARGA INICIAL Y CAMBIO DE PESTAÑA ---
   useEffect(() => {
     if (!user || (user.rol !== 'Admin' && user.rol !== 'Administrador')) return;
@@ -70,11 +94,15 @@ export default function AdminPanel() {
       if (resOrdenes.ok) {
         const dataOrd = await resOrdenes.json();
         setOrdenes(dataOrd);
+      } else {
+        throw new Error('Error al conectar con el endpoint de órdenes.');
       }
       const resRenovaciones = await fetch(`${API_URL}/api/admin/renovaciones`);
       if (resRenovaciones.ok) {
         const dataRen = await resRenovaciones.json();
         setRenovaciones(dataRen);
+      } else {
+        throw new Error('Error al conectar con el endpoint de renovaciones.');
       }
     } catch (e) {
       console.error("Error al obtener datos de órdenes:", e);
@@ -217,6 +245,8 @@ export default function AdminPanel() {
       if (res.ok) {
         const data = await res.json();
         setProductos(data);
+      } else {
+        throw new Error('Error al conectar con el catálogo de productos.');
       }
     } catch (e) {
       console.error("Error al obtener productos:", e);
@@ -342,6 +372,8 @@ export default function AdminPanel() {
       if (res.ok) {
         const data = await res.json();
         setClientes(data);
+      } else {
+        throw new Error('Error al obtener la lista de clientes.');
       }
     } catch (e) {
       console.error("Error al obtener clientes:", e);
@@ -358,6 +390,8 @@ export default function AdminPanel() {
       if (res.ok) {
         const data = await res.json();
         setReportes(data);
+      } else {
+        throw new Error('Error al obtener reporte financiero.');
       }
     } catch (e) {
       console.error("Error al obtener reporte financiero:", e);
@@ -414,7 +448,7 @@ export default function AdminPanel() {
           {tab === 'clientes' && (
             <button
               onClick={fetchClientes}
-              className="bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-300 p-3 rounded-xl transition-all"
+              className="bg-slate-955 border border-slate-800 hover:border-slate-700 text-slate-300 p-3 rounded-xl transition-all"
               title="Recargar Clientes"
             >
               <RefreshCw className="w-5 h-5" />
@@ -423,7 +457,7 @@ export default function AdminPanel() {
           {tab === 'reportes' && (
             <button
               onClick={fetchReportes}
-              className="bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-300 p-3 rounded-xl transition-all"
+              className="bg-slate-955 border border-slate-800 hover:border-slate-700 text-slate-300 p-3 rounded-xl transition-all"
               title="Recargar Reportes"
             >
               <RefreshCw className="w-5 h-5" />
@@ -627,7 +661,7 @@ export default function AdminPanel() {
                           </td>
                         </tr>
                         
-                        {/* Fila de ingreso controlado de claves (Textarea Multilínea) */}
+                        {/* Fila de ingreso controlado de claves (Textarea Multilínea con Contraste Elevado) */}
                         {activeOrderInputId === ord.id && (
                           <tr className="bg-slate-950/40">
                             <td colSpan="6" className="px-6 py-4">
@@ -646,7 +680,7 @@ export default function AdminPanel() {
                                         placeholder="Ingresa la clave o credenciales de activación (puedes ingresar varias líneas)..."
                                         value={clavesForm[d.id] || ''}
                                         onChange={(e) => handleClaveChange(d.id, e.target.value)}
-                                        className="bg-slate-955 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-sky-500 w-full font-mono resize-y"
+                                        className="bg-[#1e293b] text-white border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg w-full p-2.5 text-xs font-mono resize-y"
                                       />
                                     </div>
                                   ))}
@@ -654,7 +688,7 @@ export default function AdminPanel() {
                                 <div className="flex gap-2 justify-end">
                                   <button
                                     onClick={() => setActiveOrderInputId(null)}
-                                    className="bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200 text-xs px-4 py-2 rounded-lg transition-all"
+                                    className="bg-slate-955 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200 text-xs px-4 py-2 rounded-lg transition-all"
                                   >
                                     Cancelar
                                   </button>
@@ -724,7 +758,7 @@ export default function AdminPanel() {
                                   </button>
                                   <button
                                     onClick={() => submitEditarOrden(ord.id)}
-                                    className="bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs px-4 py-2 rounded-lg transition-all flex items-center gap-1"
+                                    className="bg-sky-500 hover:bg-sky-400 text-slate-955 font-bold text-xs px-4 py-2 rounded-lg transition-all flex items-center gap-1"
                                   >
                                     <Save className="w-3.5 h-3.5" />
                                     Actualizar Pedido
@@ -761,9 +795,9 @@ export default function AdminPanel() {
             )}
           </div>
 
-          {/* Formulario de Agregar / Editar (Modal Flotante Centrado) */}
+          {/* Formulario de Agregar / Editar (Modal Flotante Centrado con Contraste Elevado) */}
           {showProductForm && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
               <div className="bg-[#0f172a] border border-slate-800 rounded-xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto relative">
                 <button
                   type="button"
@@ -787,7 +821,7 @@ export default function AdminPanel() {
                       required
                       value={productForm.nombre}
                       onChange={(e) => handleProductInputChange('nombre', e.target.value)}
-                      className="w-full bg-slate-955 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-sky-500 transition-all text-sm"
+                      className="bg-[#1e293b] text-white border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg w-full p-2.5 text-sm"
                       placeholder="Ej. Photoshop CC Anual"
                     />
                   </div>
@@ -797,11 +831,11 @@ export default function AdminPanel() {
                     <select
                       value={productForm.categoria}
                       onChange={(e) => handleProductInputChange('categoria', e.target.value)}
-                      className="w-full bg-slate-955 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:border-sky-500 transition-all text-sm"
+                      className="bg-[#1e293b] text-white border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg w-full p-2.5 text-sm"
                     >
-                      <option value="Software">Software</option>
-                      <option value="Streaming">Streaming</option>
-                      <option value="IA">Inteligencia Artificial (IA)</option>
+                      <option value="Software" className="bg-[#0f172a] text-slate-205">Software</option>
+                      <option value="Streaming" className="bg-[#0f172a] text-slate-205">Streaming</option>
+                      <option value="IA" className="bg-[#0f172a] text-slate-205">Inteligencia Artificial (IA)</option>
                     </select>
                   </div>
 
@@ -812,7 +846,7 @@ export default function AdminPanel() {
                       rows="3"
                       value={productForm.descripcion}
                       onChange={(e) => handleProductInputChange('descripcion', e.target.value)}
-                      className="w-full bg-slate-955 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-sky-500 transition-all text-sm resize-none"
+                      className="bg-[#1e293b] text-white border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg w-full p-2.5 text-sm resize-none"
                       placeholder="Introduce características del producto..."
                     />
                   </div>
@@ -826,7 +860,7 @@ export default function AdminPanel() {
                       max="120"
                       value={productForm.duracionMeses}
                       onChange={(e) => handleProductInputChange('duracionMeses', parseInt(e.target.value) || 0)}
-                      className="w-full bg-slate-955 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:border-sky-500 transition-all text-sm"
+                      className="bg-[#1e293b] text-white border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg w-full p-2.5 text-sm"
                     />
                   </div>
 
@@ -837,7 +871,7 @@ export default function AdminPanel() {
                       required
                       value={productForm.imagenUrl}
                       onChange={(e) => handleProductInputChange('imagenUrl', e.target.value)}
-                      className="w-full bg-slate-955 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-sky-500 transition-all text-sm font-mono"
+                      className="bg-[#1e293b] text-white border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg w-full p-2.5 text-sm font-mono"
                       placeholder="/canva.png"
                     />
                   </div>
@@ -851,7 +885,7 @@ export default function AdminPanel() {
                       min="0.01"
                       value={productForm.precio}
                       onChange={(e) => handleProductInputChange('precio', parseFloat(e.target.value) || 0)}
-                      className="w-full bg-slate-955 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:border-sky-500 transition-all text-sm font-mono"
+                      className="bg-[#1e293b] text-white border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg w-full p-2.5 text-sm font-mono"
                     />
                   </div>
 
@@ -864,7 +898,7 @@ export default function AdminPanel() {
                       min="0.00"
                       value={productForm.costoProveedor}
                       onChange={(e) => handleProductInputChange('costoProveedor', parseFloat(e.target.value) || 0)}
-                      className="w-full bg-slate-955 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:border-sky-500 transition-all text-sm font-mono"
+                      className="bg-[#1e293b] text-white border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg w-full p-2.5 text-sm font-mono"
                     />
                   </div>
 
@@ -916,7 +950,7 @@ export default function AdminPanel() {
                       <tr key={prod.id || prod.productoId} className="hover:bg-slate-900/80 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap flex items-center gap-3">
                           <img 
-                            src={prod.imagenUrl} 
+                            src={formatImageUrl(prod.imagenUrl)} 
                             alt={prod.nombre} 
                             className="w-10 h-10 object-cover rounded-lg border border-slate-800"
                             onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=300&q=80'; }}
@@ -981,7 +1015,7 @@ export default function AdminPanel() {
               Gestión de Clientes Registrados
             </h2>
             
-            {/* Buscador Rápido */}
+            {/* Buscador Rápido con Contraste */}
             <div className="relative w-full sm:w-80">
               <input
                 type="text"
@@ -991,7 +1025,7 @@ export default function AdminPanel() {
                   setSearchClienteQuery(e.target.value);
                   setCurrentClientePage(1);
                 }}
-                className="w-full bg-slate-955 border border-slate-800 rounded-xl pl-10 pr-4 py-2 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-sky-500 transition-all"
+                className="w-full bg-[#1e293b] text-white border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg p-2.5 text-xs placeholder-slate-400 transition-all pl-10"
               />
               <Search className="absolute left-3.5 top-2.5 text-slate-655 w-4 h-4" />
             </div>
