@@ -239,7 +239,14 @@ export default function AdminPanel() {
     setShowProductForm('create');
   };
 
-  const openEditProduct = (prod) => {
+  const handleEditClick = (prod) => {
+    if (!prod) return;
+    const id = prod.id || prod.productoId;
+    if (!id) {
+      alert("Error: No se pudo extraer el identificador del producto.");
+      return;
+    }
+
     setProductForm({
       nombre: prod.nombre,
       descripcion: prod.descripcion || '',
@@ -263,9 +270,10 @@ export default function AdminPanel() {
   const submitProductForm = async (e) => {
     e.preventDefault();
     try {
+      const id = editingProducto?.id || editingProducto?.productoId;
       const url = showProductForm === 'create' 
         ? `${API_URL}/api/admin/productos`
-        : `${API_URL}/api/admin/productos/${editingProducto.id || editingProducto.productoId}`;
+        : `${API_URL}/api/admin/productos/${id}`;
       
       const method = showProductForm === 'create' ? 'POST' : 'PUT';
 
@@ -599,7 +607,7 @@ export default function AdminPanel() {
                                   </button>
                                   <button
                                     onClick={() => handleCancelarOrden(ord.id)}
-                                    className="bg-red-650 hover:bg-red-500 text-white px-3 py-1.5 rounded-lg flex items-center gap-1 text-xs transition-all font-bold active:scale-95"
+                                    className="bg-red-655 hover:bg-red-500 text-white px-3 py-1.5 rounded-lg flex items-center gap-1 text-xs transition-all font-bold active:scale-95"
                                   >
                                     Cancelar
                                   </button>
@@ -745,7 +753,7 @@ export default function AdminPanel() {
             {!showProductForm && (
               <button
                 onClick={openAddProduct}
-                className="bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-md active:scale-95"
+                className="bg-sky-500 hover:bg-sky-400 text-slate-955 font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-md active:scale-95"
               >
                 <Plus className="w-4 h-4" />
                 Agregar Producto
@@ -770,7 +778,7 @@ export default function AdminPanel() {
                     required
                     value={productForm.nombre}
                     onChange={(e) => handleProductInputChange('nombre', e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-sky-500 transition-all text-sm"
+                    className="w-full bg-slate-955 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-sky-500 transition-all text-sm"
                     placeholder="Ej. Photoshop CC Anual"
                   />
                 </div>
@@ -780,7 +788,7 @@ export default function AdminPanel() {
                   <select
                     value={productForm.categoria}
                     onChange={(e) => handleProductInputChange('categoria', e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:border-sky-500 transition-all text-sm"
+                    className="w-full bg-slate-955 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:border-sky-500 transition-all text-sm"
                   >
                     <option value="Software">Software</option>
                     <option value="Streaming">Streaming</option>
@@ -795,7 +803,7 @@ export default function AdminPanel() {
                     rows="3"
                     value={productForm.descripcion}
                     onChange={(e) => handleProductInputChange('descripcion', e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-sky-500 transition-all text-sm resize-none"
+                    className="w-full bg-slate-955 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-sky-500 transition-all text-sm resize-none"
                     placeholder="Introduce características del producto..."
                   />
                 </div>
@@ -809,7 +817,7 @@ export default function AdminPanel() {
                     max="120"
                     value={productForm.duracionMeses}
                     onChange={(e) => handleProductInputChange('duracionMeses', parseInt(e.target.value) || 0)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:border-sky-500 transition-all text-sm"
+                    className="w-full bg-slate-955 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:border-sky-500 transition-all text-sm"
                   />
                 </div>
 
@@ -820,7 +828,7 @@ export default function AdminPanel() {
                     required
                     value={productForm.imagenUrl}
                     onChange={(e) => handleProductInputChange('imagenUrl', e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-sky-500 transition-all text-sm font-mono"
+                    className="w-full bg-slate-955 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-sky-500 transition-all text-sm font-mono"
                     placeholder="/canva.png"
                   />
                 </div>
@@ -834,7 +842,7 @@ export default function AdminPanel() {
                     min="0.01"
                     value={productForm.precio}
                     onChange={(e) => handleProductInputChange('precio', parseFloat(e.target.value) || 0)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:border-sky-500 transition-all text-sm font-mono"
+                    className="w-full bg-slate-955 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:border-sky-500 transition-all text-sm font-mono"
                   />
                 </div>
 
@@ -847,7 +855,7 @@ export default function AdminPanel() {
                     min="0.00"
                     value={productForm.costoProveedor}
                     onChange={(e) => handleProductInputChange('costoProveedor', parseFloat(e.target.value) || 0)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:border-sky-500 transition-all text-sm font-mono"
+                    className="w-full bg-slate-955 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:border-sky-500 transition-all text-sm font-mono"
                   />
                 </div>
 
@@ -855,13 +863,13 @@ export default function AdminPanel() {
                   <button
                     type="button"
                     onClick={() => setShowProductForm(null)}
-                    className="bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200 text-xs px-5 py-3 rounded-xl transition-all"
+                    className="bg-slate-955 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200 text-xs px-5 py-3 rounded-xl transition-all"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
-                    className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs px-5 py-3 rounded-xl transition-all shadow-md active:scale-95"
+                    className="bg-emerald-500 hover:bg-emerald-400 text-slate-955 font-bold text-xs px-5 py-3 rounded-xl transition-all shadow-md active:scale-95"
                   >
                     Guardar Producto
                   </button>
@@ -929,7 +937,7 @@ export default function AdminPanel() {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex gap-2">
                             <button
-                              onClick={() => openEditProduct(prod)}
+                              onClick={() => handleEditClick(prod)}
                               className="bg-slate-950 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 text-sky-400 p-2 rounded-lg transition-all"
                               title="Editar"
                             >
@@ -1040,7 +1048,7 @@ export default function AdminPanel() {
                     <button
                       onClick={() => setCurrentClientePage(prev => Math.min(totalClientePages, prev + 1))}
                       disabled={currentClientePage === totalClientePages}
-                      className="bg-slate-950 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 p-2 rounded-lg text-slate-400 disabled:opacity-40 transition-all active:scale-95"
+                      className="bg-slate-950 hover:bg-slate-900 border border-slate-850 hover:border-slate-700 p-2 rounded-lg text-slate-400 disabled:opacity-40 transition-all active:scale-95"
                     >
                       <ChevronRight className="w-4 h-4" />
                     </button>
