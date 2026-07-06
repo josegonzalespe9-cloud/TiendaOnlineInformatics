@@ -31,6 +31,14 @@ public class Usuario
     [MaxLength(20)]
     public string Rol { get; set; } = "Cliente"; // "Cliente" o "Admin"
 
+    [MaxLength(20)]
+    public string? Dni { get; set; } = string.Empty;
+
+    [MaxLength(30)]
+    public string? Telefono { get; set; } = string.Empty;
+
+    public bool Activo { get; set; } = true;
+
     [JsonIgnore]
     public ICollection<Orden> Ordenes { get; set; } = new List<Orden>();
 }

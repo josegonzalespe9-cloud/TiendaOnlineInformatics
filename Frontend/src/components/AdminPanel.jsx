@@ -36,12 +36,22 @@ export default function AdminPanel() {
     costoProveedor: 0
   });
 
-  // --- ESTADOS PARA CLIENTES ---
+  // --- ESTADOS PARA CLIENTES (CRUD) ---
   const [clientes, setClientes] = useState([]);
   const [loadingClientes, setLoadingClientes] = useState(true);
   const [searchClienteQuery, setSearchClienteQuery] = useState('');
   const [currentClientePage, setCurrentClientePage] = useState(1);
   const clientesPerPage = 8;
+  const [showClienteForm, setShowClienteForm] = useState(null); // 'create' | 'edit'
+  const [editingCliente, setEditingCliente] = useState(null);
+  const [clienteForm, setClienteForm] = useState({
+    nombre: '',
+    email: '',
+    dni: '',
+    telefono: '',
+    passwordInicial: '',
+    asignarNuevaContrasena: ''
+  });
 
   // --- ESTADOS PARA REPORTES ---
   const [reportes, setReportes] = useState(null);
@@ -374,7 +384,7 @@ export default function AdminPanel() {
     }
   };
 
-  // --- 3. MÓDULO DE CLIENTES: LISTAR ---
+  // --- 3. MÓDULO DE CLIENTES: CRUD ---
   const fetchClientes = async () => {
     try {
       setLoadingClientes(true);
@@ -389,6 +399,118 @@ export default function AdminPanel() {
       console.error("Error al obtener clientes:", e);
     } finally {
       setLoadingClientes(false);
+    }
+  };
+
+  const openAddCliente = () => {
+    setClienteForm({
+      nombre: '',
+      email: '',
+      dni: '',
+      telefono: '',
+      passwordInicial: '',
+      asignarNuevaContrasena: ''
+    });
+    setEditingCliente(null);
+    setShowClienteForm('create');
+  };
+
+  const openEditCliente = (c) => {
+    setClienteForm({
+      nombre: c.nombre,
+      email: c.email,
+      dni: c.dni || '',
+      telefono: c.telefono || c.whatsapp || '',
+      passwordInicial: '',
+      asignarNuevaContrasena: ''
+    });
+    setEditingCliente(c);
+    setShowClienteForm('edit');
+  };
+
+  const submitClienteForm = async (e) => {
+    e.preventDefault();
+    try {
+      if (showClienteForm === 'create') {
+        const response = await fetch(`${API_URL}/api/admin/clientes`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            nombre: clienteForm.nombre,
+            email: clienteForm.email,
+            dni: clienteForm.dni,
+            telefono: clienteForm.telefono,
+            passwordInicial: clienteForm.passwordInicial
+          })
+        });
+
+        if (!response.ok) {
+          const errData = await response.json();
+          throw new Error(errData.mensaje || 'Error al registrar el cliente');
+        }
+
+        alert('¡Cliente creado y guardado con éxito!');
+      } else {
+        const id = editingCliente.id;
+        const response = await fetch(`${API_URL}/api/admin/clientes/${id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            nombre: clienteForm.nombre,
+            email: clienteForm.email,
+            dni: clienteForm.dni,
+            telefono: clienteForm.telefono,
+            asignarNuevaContrasena: clienteForm.asignarNuevaContrasena
+          })
+        });
+
+        if (!response.ok) {
+          const errData = await response.json();
+          throw new Error(errData.mensaje || 'Error al actualizar el cliente');
+        }
+
+        alert('¡Cliente actualizado con éxito!');
+      }
+
+      setShowClienteForm(null);
+      await fetchClientes();
+    } catch (err) {
+      console.error("Error al guardar cliente:", err);
+      alert(err.message || 'Error en el servidor al guardar el cliente.');
+    }
+  };
+
+  const deleteCliente = async (cliente) => {
+    if (!cliente) return;
+    const id = cliente.id;
+    if (!id) {
+      alert("Error: No se pudo encontrar el identificador del cliente.");
+      return;
+    }
+
+    if (!window.confirm(`¿Está seguro de que desea dar de baja al cliente "${cliente.nombre}"?`)) return;
+
+    try {
+      const response = await fetch(`${API_URL}/api/admin/clientes/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al desactivar el cliente');
+      }
+
+      alert('¡Cliente dado de baja con éxito!');
+      await fetchClientes();
+    } catch (err) {
+      console.error("Error al dar de baja al cliente:", err);
+      alert('Error en el servidor al dar de baja al cliente.');
     }
   };
 
@@ -432,7 +554,7 @@ export default function AdminPanel() {
           </div>
           <div>
             <h1 className="text-2xl font-extrabold text-slate-100 tracking-tight">Panel Administrativo Backoffice</h1>
-            <p className="text-slate-400 text-sm mt-0.5">Control completo de licencias and monitoreo de WhatsApp</p>
+            <p className="text-slate-400 text-sm mt-0.5">Control completo de licencias y monitoreo de WhatsApp</p>
           </div>
         </div>
 
@@ -683,7 +805,7 @@ export default function AdminPanel() {
                                 <div className="grid grid-cols-1 gap-4">
                                   {ord.detalles.map((d) => (
                                     <div key={d.id} className="flex flex-col gap-2 bg-slate-900 p-3 rounded-lg border border-slate-800">
-                                      <span className="text-xs font-bold text-slate-350">{d.producto?.nombre}</span>
+                                      <span className="text-xs font-bold text-slate-355">{d.producto?.nombre}</span>
                                       <textarea
                                         rows={3}
                                         required
@@ -768,7 +890,7 @@ export default function AdminPanel() {
                                   </button>
                                   <button
                                     onClick={() => submitEditarOrden(ord.id)}
-                                    className="bg-sky-500 hover:bg-sky-400 text-slate-955 font-bold text-xs px-4 py-2 rounded-lg transition-all flex items-center gap-1"
+                                    className="bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs px-4 py-2 rounded-lg transition-all flex items-center gap-1"
                                   >
                                     <Save className="w-3.5 h-3.5" />
                                     Actualizar Pedido
@@ -1016,101 +1138,246 @@ export default function AdminPanel() {
         </div>
       )}
 
-      {/* --- TAB 3: GESTIÓN DE CLIENTES --- */}
+      {/* --- TAB 3: GESTIÓN DE CLIENTES (CRUD INTEGRAL) --- */}
       {tab === 'clientes' && (
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div className="space-y-6">
+          {/* Header de Gestión de Clientes */}
+          <div className="flex justify-between items-center bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl">
             <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
               <Users className="w-5 h-5 text-sky-400" />
               Gestión de Clientes Registrados
             </h2>
-            
-            {/* Buscador Rápido con Contraste */}
-            <div className="relative w-full sm:w-80">
-              <input
-                type="text"
-                placeholder="Buscar por nombre o correo..."
-                value={searchClienteQuery}
-                onChange={(e) => {
-                  setSearchClienteQuery(e.target.value);
-                  setCurrentClientePage(1);
-                }}
-                className="w-full bg-[#1e293b] text-white border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg p-2.5 text-xs placeholder-slate-400 transition-all pl-10"
-              />
-              <Search className="absolute left-3.5 top-2.5 text-slate-655 w-4 h-4" />
+            <div className="flex items-center gap-4">
+              {/* Buscador Rápido con Contraste */}
+              <div className="relative w-72">
+                <input
+                  type="text"
+                  placeholder="Buscar por nombre o correo..."
+                  value={searchClienteQuery}
+                  onChange={(e) => {
+                    setSearchClienteQuery(e.target.value);
+                    setCurrentClientePage(1);
+                  }}
+                  className="w-full bg-[#1e293b] text-white border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg p-2.5 text-xs placeholder-slate-400 transition-all pl-10"
+                />
+                <Search className="absolute left-3.5 top-2.5 text-slate-655 w-4 h-4" />
+              </div>
+              {!showClienteForm && (
+                <button
+                  onClick={openAddCliente}
+                  className="bg-sky-500 hover:bg-sky-400 text-slate-955 font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-md active:scale-95"
+                >
+                  <Plus className="w-4 h-4" />
+                  Agregar Cliente
+                </button>
+              )}
             </div>
           </div>
 
-          {loadingClientes ? (
-            <div className="flex justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-sky-500"></div>
-            </div>
-          ) : clientesFiltrados.length === 0 ? (
-            <div className="text-center py-12 text-slate-500 text-sm">
-              No se encontraron clientes registrados.
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="overflow-x-auto rounded-2xl border border-slate-800">
-                <table className="min-w-full divide-y divide-slate-800 text-sm text-left">
-                  <thead className="bg-slate-955 text-slate-400 uppercase text-xs tracking-wider">
-                    <tr>
-                      <th className="px-6 py-4">Cliente</th>
-                      <th className="px-6 py-4">Correo</th>
-                      <th className="px-6 py-4">WhatsApp</th>
-                      <th className="px-6 py-4 text-center">Pedidos Completados</th>
-                      <th className="px-6 py-4">Inversión Total</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800 bg-slate-900/50">
-                    {currentClientes.map((c, index) => (
-                      <tr key={index} className="hover:bg-slate-900/80 transition-colors">
-                        <td className="px-6 py-4 whitespace-nowrap font-bold text-slate-200">{c.nombre}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-slate-400 font-mono">{c.email}</td>
-                        <td className="px-6 py-4 whitespace-nowrap font-mono">
-                          <a 
-                            href={`https://api.whatsapp.com/send?phone=${c.whatsapp}`} 
-                            target="_blank" 
-                            rel="noopener noreferrer" 
-                            className="text-sky-400 hover:underline"
-                          >
-                            {c.whatsapp}
-                          </a>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center text-slate-300 font-bold">{c.totalPedidosCompletados}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-emerald-400 font-bold font-mono">S/ {c.totalInvertido.toFixed(2)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+          {/* Formulario de Agregar / Editar Cliente (Modal Flotante Centrado) */}
+          {showClienteForm && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+              <div className="bg-[#0f172a] border border-slate-800 rounded-xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto relative">
+                <button
+                  type="button"
+                  onClick={() => setShowClienteForm(null)}
+                  className="absolute top-4 right-4 text-slate-400 hover:text-slate-200 transition-colors"
+                  title="Cerrar modal"
+                >
+                  <X className="w-5 h-5" />
+                </button>
 
-              {/* Controles de Paginación */}
-              {totalClientePages > 1 && (
-                <div className="flex items-center justify-between border-t border-slate-850 pt-4">
-                  <p className="text-xs text-slate-500">
-                    Mostrando del <span className="font-bold text-slate-400">{indexOfFirstCliente + 1}</span> al <span className="font-bold text-slate-400">{Math.min(indexOfLastCliente, clientesFiltrados.length)}</span> de <span className="font-bold text-slate-400">{clientesFiltrados.length}</span> clientes.
-                  </p>
-                  <div className="flex gap-2">
+                <h3 className="text-lg font-bold text-slate-100 mb-6 flex items-center gap-2">
+                  <Users className="w-5 h-5 text-sky-400" />
+                  {showClienteForm === 'create' ? 'Nuevo Cliente' : 'Editar Cliente'}
+                </h3>
+                
+                <form onSubmit={submitClienteForm} className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wide">Nombre Completo</label>
+                    <input
+                      type="text"
+                      required
+                      value={clienteForm.nombre}
+                      onChange={(e) => setClienteForm(prev => ({ ...prev, nombre: e.target.value }))}
+                      className="bg-[#1e293b] text-white border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg w-full p-2.5 text-sm"
+                      placeholder="Ej. José Gonzales"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wide">Correo Electrónico</label>
+                    <input
+                      type="email"
+                      required
+                      value={clienteForm.email}
+                      onChange={(e) => setClienteForm(prev => ({ ...prev, email: e.target.value }))}
+                      className="bg-[#1e293b] text-white border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg w-full p-2.5 text-sm"
+                      placeholder="correo@ejemplo.com"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wide">DNI</label>
+                    <input
+                      type="text"
+                      value={clienteForm.dni}
+                      onChange={(e) => setClienteForm(prev => ({ ...prev, dni: e.target.value }))}
+                      className="bg-[#1e293b] text-white border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg w-full p-2.5 text-sm font-mono"
+                      placeholder="Número de DNI"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wide">Teléfono / WhatsApp</label>
+                    <input
+                      type="text"
+                      value={clienteForm.telefono}
+                      onChange={(e) => setClienteForm(prev => ({ ...prev, telefono: e.target.value }))}
+                      className="bg-[#1e293b] text-white border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg w-full p-2.5 text-sm font-mono"
+                      placeholder="Ej. +51984497138"
+                    />
+                  </div>
+
+                  {showClienteForm === 'create' ? (
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wide">Contraseña Inicial</label>
+                      <input
+                        type="password"
+                        required
+                        value={clienteForm.passwordInicial}
+                        onChange={(e) => setClienteForm(prev => ({ ...prev, passwordInicial: e.target.value }))}
+                        className="bg-[#1e293b] text-white border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg w-full p-2.5 text-sm"
+                        placeholder="Contraseña del cliente"
+                      />
+                    </div>
+                  ) : (
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wide">Asignar Nueva Contraseña (Opcional)</label>
+                      <input
+                        type="password"
+                        value={clienteForm.asignarNuevaContrasena}
+                        onChange={(e) => setClienteForm(prev => ({ ...prev, asignarNuevaContrasena: e.target.value }))}
+                        className="bg-[#1e293b] text-white border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg w-full p-2.5 text-sm"
+                        placeholder="Ingresa contraseña para restablecer, o deja vacío para mantener la actual"
+                      />
+                    </div>
+                  )}
+
+                  <div className="md:col-span-2 flex justify-end gap-3 pt-2">
                     <button
-                      onClick={() => setCurrentClientePage(prev => Math.max(1, prev - 1))}
-                      disabled={currentClientePage === 1}
-                      className="bg-slate-955 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 p-2 rounded-lg text-slate-400 disabled:opacity-40 transition-all active:scale-95"
+                      type="button"
+                      onClick={() => setShowClienteForm(null)}
+                      className="bg-slate-955 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200 text-xs px-5 py-3 rounded-xl transition-all"
                     >
-                      <ChevronLeft className="w-4 h-4" />
+                      Cancelar
                     </button>
                     <button
-                      onClick={() => setCurrentClientePage(prev => Math.min(totalClientePages, prev + 1))}
-                      disabled={currentClientePage === totalClientePages}
-                      className="bg-slate-955 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 p-2 rounded-lg text-slate-400 disabled:opacity-40 transition-all active:scale-95"
+                      type="submit"
+                      className="bg-emerald-500 hover:bg-emerald-400 text-slate-955 font-bold text-xs px-5 py-3 rounded-xl transition-all shadow-md active:scale-95"
                     >
-                      <ChevronRight className="w-4 h-4" />
+                      Guardar Cliente
                     </button>
                   </div>
-                </div>
-              )}
+                </form>
+              </div>
             </div>
           )}
+
+          {/* Tabla de Clientes */}
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl">
+            {loadingClientes ? (
+              <div className="flex justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-sky-500"></div>
+              </div>
+            ) : clientesFiltrados.length === 0 ? (
+              <div className="text-center py-12 text-slate-500 text-sm">
+                No se encontraron clientes registrados.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="overflow-x-auto rounded-2xl border border-slate-800">
+                  <table className="min-w-full divide-y divide-slate-800 text-sm text-left">
+                    <thead className="bg-slate-950 text-slate-400 uppercase text-xs tracking-wider">
+                      <tr>
+                        <th className="px-6 py-4">Cliente</th>
+                        <th className="px-6 py-4">Correo</th>
+                        <th className="px-6 py-4">DNI</th>
+                        <th className="px-6 py-4">Teléfono</th>
+                        <th className="px-6 py-4 text-center">Pedidos</th>
+                        <th className="px-6 py-4">Inversión</th>
+                        <th className="px-6 py-4">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800 bg-slate-900/50">
+                      {currentClientes.map((c) => (
+                        <tr key={c.id} className="hover:bg-slate-900/80 transition-colors">
+                          <td className="px-6 py-4 whitespace-nowrap font-bold text-slate-200">{c.nombre}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-slate-400 font-mono">{c.email}</td>
+                          <td className="px-6 py-4 whitespace-nowrap font-mono text-slate-300">{c.dni || 'N/A'}</td>
+                          <td className="px-6 py-4 whitespace-nowrap font-mono">
+                            <a 
+                              href={`https://api.whatsapp.com/send?phone=${c.telefono || c.whatsapp}`} 
+                              target="_blank" 
+                              rel="noopener noreferrer" 
+                              className="text-sky-400 hover:underline"
+                            >
+                              {c.telefono || c.whatsapp}
+                            </a>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center text-slate-300 font-bold">{c.totalPedidosCompletados}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-emerald-400 font-bold font-mono">S/ {c.totalInvertido.toFixed(2)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => openEditCliente(c)}
+                                className="bg-slate-955 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 text-sky-400 p-2 rounded-lg transition-all"
+                                title="Editar"
+                              >
+                                <Edit3 className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => deleteCliente(c)}
+                                className="bg-slate-955 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 text-rose-500 p-2 rounded-lg transition-all"
+                                title="Dar de baja"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Controles de Paginación */}
+                {totalClientePages > 1 && (
+                  <div className="flex items-center justify-between border-t border-slate-850 pt-4">
+                    <p className="text-xs text-slate-500">
+                      Mostrando del <span className="font-bold text-slate-400">{indexOfFirstCliente + 1}</span> al <span className="font-bold text-slate-400">{Math.min(indexOfLastCliente, clientesFiltrados.length)}</span> de <span className="font-bold text-slate-400">{clientesFiltrados.length}</span> clientes.
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setCurrentClientePage(prev => Math.max(1, prev - 1))}
+                        disabled={currentClientePage === 1}
+                        className="bg-slate-955 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 p-2 rounded-lg text-slate-400 disabled:opacity-40 transition-all active:scale-95"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setCurrentClientePage(prev => Math.min(totalClientePages, prev + 1))}
+                        disabled={currentClientePage === totalClientePages}
+                        className="bg-slate-955 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 p-2 rounded-lg text-slate-400 disabled:opacity-40 transition-all active:scale-95"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

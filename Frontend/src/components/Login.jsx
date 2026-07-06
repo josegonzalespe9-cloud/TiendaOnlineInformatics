@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useCart } from '../context/CartContext';
-import { Lock, Mail, User, Phone, LogIn, UserPlus } from 'lucide-react';
+import { Lock, Mail, User, Phone, LogIn, UserPlus, Eye, EyeOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { API_URL } from '../services/api';
 
@@ -11,6 +11,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const { login } = useCart();
   const navigate = useNavigate();
@@ -119,10 +120,10 @@ export default function Login() {
                   required
                   value={nombre}
                   onChange={(e) => setNombre(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-11 pr-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-sky-500 transition-all text-sm"
+                  className="w-full bg-slate-955 border border-slate-800 rounded-xl pl-11 pr-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-sky-500 transition-all text-sm"
                   placeholder="Ej. José Gonzales"
                 />
-                <User className="absolute left-4 top-3.5 text-slate-600 w-4 h-4" />
+                <User className="absolute left-4 top-3.5 text-slate-655 w-4 h-4" />
               </div>
             </div>
           )}
@@ -137,10 +138,10 @@ export default function Login() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-11 pr-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-sky-500 transition-all text-sm"
+                className="w-full bg-slate-955 border border-slate-800 rounded-xl pl-11 pr-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-sky-500 transition-all text-sm"
                 placeholder="correo@ejemplo.com"
               />
-              <Mail className="absolute left-4 top-3.5 text-slate-600 w-4 h-4" />
+              <Mail className="absolute left-4 top-3.5 text-slate-655 w-4 h-4" />
             </div>
           </div>
 
@@ -155,10 +156,10 @@ export default function Login() {
                   required
                   value={whatsapp}
                   onChange={(e) => setWhatsapp(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-11 pr-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-sky-500 transition-all text-sm"
+                  className="w-full bg-slate-955 border border-slate-800 rounded-xl pl-11 pr-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-sky-500 transition-all text-sm"
                   placeholder="Ej. +51900000000"
                 />
-                <Phone className="absolute left-4 top-3.5 text-slate-600 w-4 h-4" />
+                <Phone className="absolute left-4 top-3.5 text-slate-655 w-4 h-4" />
               </div>
             </div>
           )}
@@ -169,14 +170,22 @@ export default function Login() {
             </label>
             <div className="relative">
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-11 pr-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-sky-500 transition-all text-sm"
+                className="w-full bg-slate-955 border border-slate-800 rounded-xl pl-11 pr-12 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-sky-500 transition-all text-sm"
                 placeholder="••••••••"
               />
-              <Lock className="absolute left-4 top-3.5 text-slate-600 w-4 h-4" />
+              <Lock className="absolute left-4 top-3.5 text-slate-655 w-4 h-4" />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-3.5 text-slate-500 hover:text-slate-300 transition-colors"
+                title={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
           </div>
 

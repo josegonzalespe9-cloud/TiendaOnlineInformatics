@@ -90,6 +90,69 @@ using (var scope = app.Services.CreateScope())
             Console.WriteLine($"Advertencia al verificar columna Activo: {ex.Message}");
         }
 
+        // Verificar si la columna Dni existe en la tabla Usuarios, y si no, agregarla
+        try
+        {
+            db.Database.ExecuteSqlRaw(@"
+                DO $$ 
+                BEGIN 
+                    IF NOT EXISTS (
+                        SELECT 1 
+                        FROM information_schema.columns 
+                        WHERE table_name='Usuarios' AND column_name='Dni'
+                    ) THEN 
+                        ALTER TABLE ""Usuarios"" ADD COLUMN ""Dni"" VARCHAR(20) DEFAULT '';
+                    END IF;
+                END $$;");
+            Console.WriteLine("Columna Dni en Usuarios verificada/creada con éxito.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Advertencia al verificar columna Dni en Usuarios: {ex.Message}");
+        }
+
+        // Verificar si la columna Telefono existe en la tabla Usuarios, y si no, agregarla
+        try
+        {
+            db.Database.ExecuteSqlRaw(@"
+                DO $$ 
+                BEGIN 
+                    IF NOT EXISTS (
+                        SELECT 1 
+                        FROM information_schema.columns 
+                        WHERE table_name='Usuarios' AND column_name='Telefono'
+                    ) THEN 
+                        ALTER TABLE ""Usuarios"" ADD COLUMN ""Telefono"" VARCHAR(30) DEFAULT '';
+                    END IF;
+                END $$;");
+            Console.WriteLine("Columna Telefono en Usuarios verificada/creada con éxito.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Advertencia al verificar columna Telefono en Usuarios: {ex.Message}");
+        }
+
+        // Verificar si la columna Activo existe en la tabla Usuarios, y si no, agregarla
+        try
+        {
+            db.Database.ExecuteSqlRaw(@"
+                DO $$ 
+                BEGIN 
+                    IF NOT EXISTS (
+                        SELECT 1 
+                        FROM information_schema.columns 
+                        WHERE table_name='Usuarios' AND column_name='Activo'
+                    ) THEN 
+                        ALTER TABLE ""Usuarios"" ADD COLUMN ""Activo"" BOOLEAN NOT NULL DEFAULT TRUE;
+                    END IF;
+                END $$;");
+            Console.WriteLine("Columna Activo en Usuarios verificada/creada con éxito.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Advertencia al verificar columna Activo en Usuarios: {ex.Message}");
+        }
+
         // Cargar y ejecutar el script SQL alter_imagen_url_length.sql directamente si existe
         var sqlPath = Path.Combine(app.Environment.ContentRootPath, "Data", "alter_imagen_url_length.sql");
         if (File.Exists(sqlPath))
@@ -116,7 +179,10 @@ using (var scope = app.Services.CreateScope())
                 Email = adminEmail,
                 Rol = "Admin",
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword("AdminTemp2026!"),
-                WhatsApp = "51984497138"
+                WhatsApp = "51984497138",
+                Dni = "00000000",
+                Telefono = "51984497138",
+                Activo = true
             };
             db.Usuarios.Add(adminUser);
             db.SaveChanges();
@@ -194,7 +260,7 @@ app.UseCors("AllowReactApp");
 
 // --- ENDPOINTS DE LA API CON MANEJO DE ERRORES BLINDADO ---
 
-// 1. REGISTRO DE USUARIO
+// 1. REGISTRO DE USUARIO (PÚBLICO)
 app.MapPost("/api/auth/register", async (Usuario usuario, ApplicationDbContext db) =>
 {
     try
@@ -211,6 +277,7 @@ app.MapPost("/api/auth/register", async (Usuario usuario, ApplicationDbContext d
         }
 
         usuario.PasswordHash = BCrypt.Net.BCrypt.HashPassword(usuario.PasswordHash);
+        usuario.Activo = true;
         db.Usuarios.Add(usuario);
         await db.SaveChangesAsync();
 
@@ -234,7 +301,7 @@ app.MapPost("/api/auth/login", async (LoginDto loginDto, ApplicationDbContext db
             return Results.BadRequest(new { mensaje = "Debe proveer correo y contraseña." });
         }
 
-        var usuario = await db.Usuarios.FirstOrDefaultAsync(u => u.Email == loginDto.Email);
+        var usuario = await db.Usuarios.FirstOrDefaultAsync(u => u.Email == loginDto.Email && u.Activo);
         if (usuario == null || !BCrypt.Net.BCrypt.Verify(loginDto.Password, usuario.PasswordHash))
         {
             return Results.Unauthorized();
@@ -278,7 +345,7 @@ app.MapPost("/api/ordenes", async (CrearOrdenDto dto, ApplicationDbContext db) =
     try
     {
         var usuario = await db.Usuarios.FindAsync(dto.UsuarioId);
-        if (usuario == null)
+        if (usuario == null || !usuario.Activo)
         {
             return Results.NotFound(new { mensaje = "Usuario no encontrado." });
         }
@@ -294,9 +361,9 @@ app.MapPost("/api/ordenes", async (CrearOrdenDto dto, ApplicationDbContext db) =
         foreach (var item in dto.Items)
         {
             var prod = await db.Productos.FindAsync(item.ProductoId);
-            if (prod == null)
+            if (prod == null || !prod.Activo)
             {
-                return Results.BadRequest(new { mensaje = $"Producto con ID {item.ProductoId} no existe." });
+                return Results.BadRequest(new { mensaje = $"Producto con ID {item.ProductoId} no existe o está inactivo." });
             }
 
             var precioUnitario = prod.Precio;
@@ -533,9 +600,9 @@ app.MapPut("/api/admin/ordenes/{id}/editar", async (int id, EditarOrdenDto dto, 
         foreach (var item in dto.Items)
         {
             var prod = await db.Productos.FindAsync(item.ProductoId);
-            if (prod == null)
+            if (prod == null || !prod.Activo)
             {
-                return Results.BadRequest(new { mensaje = $"Producto con ID {item.ProductoId} no existe." });
+                return Results.BadRequest(new { mensaje = $"Producto con ID {item.ProductoId} no existe o está inactivo." });
             }
 
             var precioUnitario = prod.Precio;
@@ -695,18 +762,21 @@ app.MapDelete("/api/admin/productos/{id}", async (int id, ApplicationDbContext d
     }
 });
 
-// 13. GESTIÓN DE CLIENTES CON ESTADÍSTICAS (JOIN / AGREGACIÓN DE TOTALES COMPRADOS)
+// 13. GESTIÓN DE CLIENTES CON ESTADÍSTICAS (SÓLO RETORNA CLIENTES ACTIVOS)
 app.MapGet("/api/admin/clientes", async (ApplicationDbContext db) =>
 {
     try
     {
         var clientes = await db.Usuarios
-            .Where(u => u.Rol == "Cliente")
+            .Where(u => u.Rol == "Cliente" && u.Activo)
             .Select(u => new
             {
+                id = u.Id,
                 nombre = u.Nombre,
                 email = u.Email,
                 whatsapp = u.WhatsApp,
+                dni = u.Dni,
+                telefono = u.Telefono,
                 totalPedidosCompletados = u.Ordenes.Count(o => o.Estado == "Completada"),
                 totalInvertido = u.Ordenes.Where(o => o.Estado == "Completada").Sum(o => (decimal?)o.Total) ?? 0.00m
             })
@@ -719,6 +789,115 @@ app.MapGet("/api/admin/clientes", async (ApplicationDbContext db) =>
         var log = $"Fecha: {DateTime.UtcNow}\nComponente: AdminGetClientes\nMensaje: {ex.Message}\nTraza: {ex.StackTrace}";
         Console.WriteLine(log);
         return Results.Json(new { mensaje = "Error al obtener el listado de clientes.", detalle = ex.Message }, statusCode: 500);
+    }
+});
+
+// 13b. GESTIÓN DE CLIENTES - REGISTRAR CLIENTE MANUALMENTE (CON CONTRASEÑA ENCRIPTADA Y DNI / TELEFONO)
+app.MapPost("/api/admin/clientes", async (RegistrarClienteDto dto, ApplicationDbContext db) =>
+{
+    try
+    {
+        if (string.IsNullOrWhiteSpace(dto.Nombre) || string.IsNullOrWhiteSpace(dto.Email) || string.IsNullOrWhiteSpace(dto.PasswordInicial))
+        {
+            return Results.BadRequest(new { mensaje = "El nombre, correo y contraseña inicial son obligatorios." });
+        }
+
+        var existe = await db.Usuarios.AnyAsync(u => u.Email == dto.Email);
+        if (existe)
+        {
+            return Results.Conflict(new { mensaje = "El correo electrónico ya está registrado." });
+        }
+
+        var usuario = new Usuario
+        {
+            Nombre = dto.Nombre,
+            Email = dto.Email,
+            Dni = dto.Dni ?? string.Empty,
+            Telefono = dto.Telefono ?? string.Empty,
+            WhatsApp = dto.Telefono ?? string.Empty,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.PasswordInicial),
+            Rol = "Cliente",
+            Activo = true
+        };
+
+        db.Usuarios.Add(usuario);
+        await db.SaveChangesAsync();
+
+        return Results.Created($"/api/admin/clientes/{usuario.Id}", new { id = usuario.Id, nombre = usuario.Nombre, email = usuario.Email });
+    }
+    catch (Exception ex)
+    {
+        var log = $"Fecha: {DateTime.UtcNow}\nComponente: AdminCreateCliente\nMensaje: {ex.Message}\nTraza: {ex.StackTrace}";
+        Console.WriteLine(log);
+        return Results.Json(new { mensaje = "Error al registrar el cliente.", detalle = ex.Message }, statusCode: 500);
+    }
+});
+
+// 13c. GESTIÓN DE CLIENTES - ACTUALIZAR PERFIL Y NUEVA CONTRASEÑA OPCIONAL
+app.MapPut("/api/admin/clientes/{id}", async (int id, EditarClienteDto dto, ApplicationDbContext db) =>
+{
+    try
+    {
+        var user = await db.Usuarios.FindAsync(id);
+        if (user == null || !user.Activo)
+        {
+            return Results.NotFound(new { mensaje = "Cliente no encontrado o inactivo." });
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.Nombre) || string.IsNullOrWhiteSpace(dto.Email))
+        {
+            return Results.BadRequest(new { mensaje = "El nombre y el correo electrónico son campos obligatorios." });
+        }
+
+        var correoExiste = await db.Usuarios.AnyAsync(u => u.Email == dto.Email && u.Id != id);
+        if (correoExiste)
+        {
+            return Results.Conflict(new { mensaje = "El correo electrónico ya está en uso por otro usuario." });
+        }
+
+        user.Nombre = dto.Nombre;
+        user.Email = dto.Email;
+        user.Dni = dto.Dni ?? string.Empty;
+        user.Telefono = dto.Telefono ?? string.Empty;
+        user.WhatsApp = dto.Telefono ?? string.Empty;
+
+        if (!string.IsNullOrWhiteSpace(dto.AsignarNuevaContrasena))
+        {
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.AsignarNuevaContrasena);
+        }
+
+        await db.SaveChangesAsync();
+        return Results.Ok(new { mensaje = "Cliente actualizado con éxito.", id = user.Id });
+    }
+    catch (Exception ex)
+    {
+        var log = $"Fecha: {DateTime.UtcNow}\nComponente: AdminUpdateCliente\nMensaje: {ex.Message}\nTraza: {ex.StackTrace}";
+        Console.WriteLine(log);
+        return Results.Json(new { mensaje = "Error al actualizar el cliente.", detalle = ex.Message }, statusCode: 500);
+    }
+});
+
+// 13d. GESTIÓN DE CLIENTES - ELIMINAR/DESACTIVAR CLIENTE DE FORMA SEGURA (BORRADO LÓGICO)
+app.MapDelete("/api/admin/clientes/{id}", async (int id, ApplicationDbContext db) =>
+{
+    try
+    {
+        var user = await db.Usuarios.FindAsync(id);
+        if (user == null)
+        {
+            return Results.NotFound(new { mensaje = "Cliente no encontrado." });
+        }
+
+        user.Activo = false;
+        await db.SaveChangesAsync();
+        
+        return Results.Ok(new { mensaje = "Cliente desactivado con éxito." });
+    }
+    catch (Exception ex)
+    {
+        var log = $"Fecha: {DateTime.UtcNow}\nComponente: AdminDeleteCliente\nMensaje: {ex.Message}\nTraza: {ex.StackTrace}";
+        Console.WriteLine(log);
+        return Results.Json(new { mensaje = "Error al desactivar el cliente.", detalle = ex.Message }, statusCode: 500);
     }
 });
 
@@ -774,6 +953,8 @@ public record ItemOrdenDto(int ProductoId, int Cantidad);
 public record CrearOrdenDto(int UsuarioId, List<ItemOrdenDto> Items);
 public record CompletarOrdenDto(Dictionary<int, string>? ClavesPorDetalle);
 public record EditarOrdenDto(List<ItemOrdenDto> Items);
+public record RegistrarClienteDto(string Nombre, string Email, string? Dni, string? Telefono, string PasswordInicial);
+public record EditarClienteDto(string Nombre, string Email, string? Dni, string? Telefono, string? AsignarNuevaContrasena);
 
 // --- JWT TOKEN GENERATION HELPER ---
 public static class JwtHelper
