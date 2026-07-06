@@ -120,10 +120,10 @@ export default function Login() {
                   required
                   value={nombre}
                   onChange={(e) => setNombre(e.target.value)}
-                  className="w-full bg-slate-955 border border-slate-800 rounded-xl pl-11 pr-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-sky-500 transition-all text-sm"
+                  className="w-full bg-[#1e293b] text-white border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg pl-11 pr-4 py-3 text-sm transition-all placeholder-slate-500"
                   placeholder="Ej. José Gonzales"
                 />
-                <User className="absolute left-4 top-3.5 text-slate-655 w-4 h-4" />
+                <User className="absolute left-4 top-3.5 text-slate-500 w-4 h-4" />
               </div>
             </div>
           )}
@@ -138,10 +138,10 @@ export default function Login() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-slate-955 border border-slate-800 rounded-xl pl-11 pr-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-sky-500 transition-all text-sm"
+                className="w-full bg-[#1e293b] text-white border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg pl-11 pr-4 py-3 text-sm transition-all placeholder-slate-500"
                 placeholder="correo@ejemplo.com"
               />
-              <Mail className="absolute left-4 top-3.5 text-slate-655 w-4 h-4" />
+              <Mail className="absolute left-4 top-3.5 text-slate-500 w-4 h-4" />
             </div>
           </div>
 
@@ -156,10 +156,10 @@ export default function Login() {
                   required
                   value={whatsapp}
                   onChange={(e) => setWhatsapp(e.target.value)}
-                  className="w-full bg-slate-955 border border-slate-800 rounded-xl pl-11 pr-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-sky-500 transition-all text-sm"
+                  className="w-full bg-[#1e293b] text-white border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg pl-11 pr-4 py-3 text-sm transition-all placeholder-slate-500"
                   placeholder="Ej. +51900000000"
                 />
-                <Phone className="absolute left-4 top-3.5 text-slate-655 w-4 h-4" />
+                <Phone className="absolute left-4 top-3.5 text-slate-500 w-4 h-4" />
               </div>
             </div>
           )}
@@ -174,10 +174,10 @@ export default function Login() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-slate-955 border border-slate-800 rounded-xl pl-11 pr-12 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-sky-500 transition-all text-sm"
+                className="w-full bg-[#1e293b] text-white border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg pl-11 pr-12 py-3 text-sm transition-all placeholder-slate-500"
                 placeholder="••••••••"
               />
-              <Lock className="absolute left-4 top-3.5 text-slate-655 w-4 h-4" />
+              <Lock className="absolute left-4 top-3.5 text-slate-500 w-4 h-4" />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
@@ -192,7 +192,7 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold py-3.5 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 mt-6 shadow-lg hover:shadow-sky-500/20 disabled:bg-slate-800 disabled:text-slate-500"
+            className="w-full bg-sky-500 hover:bg-sky-400 text-slate-955 font-bold py-3.5 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 mt-6 shadow-lg hover:shadow-sky-500/20 disabled:bg-slate-800 disabled:text-slate-500"
           >
             {loading ? (
               <span>Procesando...</span>

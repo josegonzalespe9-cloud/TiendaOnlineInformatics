@@ -3,7 +3,7 @@ import { useCart } from '../context/CartContext';
 import { 
   FileText, Key, AlertTriangle, CheckSquare, RefreshCw, 
   ShieldAlert, CheckCircle2, Package, Users, BarChart3, Plus, 
-  Trash2, Edit3, Save, X, Search, ChevronLeft, ChevronRight, TrendingUp, Info
+  Trash2, Edit3, Save, X, Search, ChevronLeft, ChevronRight, TrendingUp, Info, Eye, EyeOff
 } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import { API_URL } from '../services/api';
@@ -26,6 +26,7 @@ export default function AdminPanel() {
   const [loadingProductos, setLoadingProductos] = useState(true);
   const [showProductForm, setShowProductForm] = useState(null); // 'create' | 'edit'
   const [editingProducto, setEditingProducto] = useState(null);
+  const [productoAEliminar, setProductoAEliminar] = useState(null);
   const [productForm, setProductForm] = useState({
     nombre: '',
     descripcion: '',
@@ -44,6 +45,8 @@ export default function AdminPanel() {
   const clientesPerPage = 8;
   const [showClienteForm, setShowClienteForm] = useState(null); // 'create' | 'edit'
   const [editingCliente, setEditingCliente] = useState(null);
+  const [showClientPass, setShowClientPass] = useState(false);
+  const [showResetPass, setShowResetPass] = useState(false);
   const [clienteForm, setClienteForm] = useState({
     nombre: '',
     email: '',
@@ -78,7 +81,11 @@ export default function AdminPanel() {
     if (url.startsWith('http://') || url.startsWith('https://')) return url;
 
     // Si es una de tus imágenes estáticas de la tienda alojadas en el frontend:
-    const imagenesLocales = ['filmora', 'canva', 'adobe', 'autodesk', 'capcut', 'eset', 'chatgpt', 'office'];
+    const imagenesLocales = [
+      'filmora', 'canva', 'adobe', 'autodesk', 'capcut', 'eset', 'chatgpt', 'office',
+      'autocad', 'gemini', 'hbomax', 'netflix', 'nitro', 'paramount', 'prime', 
+      'spotify', 'supergrok', 'windows', 'youtube'
+    ];
     const esLocal = imagenesLocales.some(img => url.toLowerCase().includes(img));
 
     if (esLocal) {
@@ -348,18 +355,14 @@ export default function AdminPanel() {
     }
   };
 
-  const deleteProduct = async (prod) => {
-    if (!prod) return;
-    const id = prod.id || prod.productoId;
-    if (!id) {
+  const eliminarProducto = async (prodId) => {
+    if (!prodId) {
       alert("Error: No se pudo encontrar el identificador del producto.");
       return;
     }
 
-    if (!window.confirm(`¿Está seguro de que desea eliminar el producto "${prod.nombre}" del catálogo?`)) return;
-
     try {
-      const response = await fetch(`${API_URL}/api/admin/productos/${id}`, {
+      const response = await fetch(`${API_URL}/api/admin/productos/${prodId}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json'
@@ -383,6 +386,8 @@ export default function AdminPanel() {
       alert('Error en el servidor al eliminar el producto.');
     }
   };
+
+  const deleteProduct = eliminarProducto;
 
   // --- 3. MÓDULO DE CLIENTES: CRUD ---
   const fetchClientes = async () => {
@@ -412,6 +417,8 @@ export default function AdminPanel() {
       asignarNuevaContrasena: ''
     });
     setEditingCliente(null);
+    setShowClientPass(false);
+    setShowResetPass(false);
     setShowClienteForm('create');
   };
 
@@ -425,6 +432,8 @@ export default function AdminPanel() {
       asignarNuevaContrasena: ''
     });
     setEditingCliente(c);
+    setShowClientPass(false);
+    setShowResetPass(false);
     setShowClienteForm('edit');
   };
 
@@ -562,7 +571,7 @@ export default function AdminPanel() {
           {tab === 'ordenes' && (
             <button
               onClick={fetchAdminData}
-              className="bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-300 p-3 rounded-xl transition-all"
+              className="bg-slate-955 border border-slate-800 hover:border-slate-700 text-slate-300 p-3 rounded-xl transition-all"
               title="Recargar Datos"
             >
               <RefreshCw className="w-5 h-5" />
@@ -648,7 +657,7 @@ export default function AdminPanel() {
               Notificaciones Prioritarias (Expiración ≤ 5 días)
             </h2>
             {renovaciones.length === 0 ? (
-              <p className="text-slate-500 text-sm">No hay servicios programados para expirar en 5 días o menos.</p>
+              <p className="text-slate-505 text-sm">No hay servicios programados para expirar en 5 días o menos.</p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {renovaciones.map((ren) => (
@@ -714,7 +723,7 @@ export default function AdminPanel() {
                         <tr className="hover:bg-slate-900/80 transition-colors">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="font-bold text-slate-200">{ord.usuario?.nombre}</div>
-                            <div className="text-xs text-slate-500">{ord.usuario?.email}</div>
+                            <div className="text-xs text-slate-505">{ord.usuario?.email}</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap font-mono text-slate-300">
                             <a 
@@ -754,12 +763,12 @@ export default function AdminPanel() {
                               activeOrderInputId === ord.id ? (
                                 <span className="text-xs text-slate-500 font-medium">Asignando claves...</span>
                               ) : editingOrderInputId === ord.id ? (
-                                <span className="text-xs text-slate-500 font-medium">Editando pedido...</span>
+                                <span className="text-xs text-slate-505 font-medium">Editando pedido...</span>
                               ) : (
                                 <div className="flex gap-2 flex-wrap">
                                   <button
                                     onClick={() => startCompletarOrden(ord)}
-                                    className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-1.5 px-3 rounded-lg text-xs transition-all flex items-center gap-1 active:scale-95"
+                                    className="bg-emerald-500 hover:bg-emerald-400 text-slate-955 font-bold py-1.5 px-3 rounded-lg text-xs transition-all flex items-center gap-1 active:scale-95"
                                   >
                                     <CheckSquare className="w-3.5 h-3.5" />
                                     Completar
@@ -795,9 +804,9 @@ export default function AdminPanel() {
                         
                         {/* Fila de ingreso controlado de claves (Textarea Multilínea con Contraste Elevado) */}
                         {activeOrderInputId === ord.id && (
-                          <tr className="bg-slate-950/40">
+                          <tr className="bg-slate-955/40">
                             <td colSpan="6" className="px-6 py-4">
-                              <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-4 max-w-2xl">
+                              <div className="bg-slate-955/80 border border-slate-800 rounded-xl p-4 space-y-4 max-w-2xl">
                                 <h4 className="text-xs font-bold text-sky-400 flex items-center gap-1 uppercase tracking-wider">
                                   <Key className="w-3.5 h-3.5" />
                                   Ingreso de Claves de Licencia - Orden #{ord.id}
@@ -826,7 +835,7 @@ export default function AdminPanel() {
                                   </button>
                                   <button
                                     onClick={() => submitCompletarOrden(ord.id)}
-                                    className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs px-4 py-2 rounded-lg transition-all flex items-center gap-1"
+                                    className="bg-emerald-500 hover:bg-emerald-400 text-slate-955 font-bold text-xs px-4 py-2 rounded-lg transition-all flex items-center gap-1"
                                   >
                                     <CheckCircle2 className="w-3.5 h-3.5" />
                                     Guardar y Aprobar
@@ -841,7 +850,7 @@ export default function AdminPanel() {
                         {editingOrderInputId === ord.id && (
                           <tr className="bg-slate-950/40">
                             <td colSpan="6" className="px-6 py-4">
-                              <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-4 max-w-2xl">
+                              <div className="bg-slate-955/80 border border-slate-800 rounded-xl p-4 space-y-4 max-w-2xl">
                                 <h4 className="text-xs font-bold text-sky-400 flex items-center gap-1 uppercase tracking-wider">
                                   <Edit3 className="w-3.5 h-3.5" />
                                   Modificar Cantidades del Pedido - Orden #{ord.id}
@@ -890,7 +899,7 @@ export default function AdminPanel() {
                                   </button>
                                   <button
                                     onClick={() => submitEditarOrden(ord.id)}
-                                    className="bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs px-4 py-2 rounded-lg transition-all flex items-center gap-1"
+                                    className="bg-sky-500 hover:bg-sky-400 text-slate-955 font-bold text-xs px-4 py-2 rounded-lg transition-all flex items-center gap-1"
                                   >
                                     <Save className="w-3.5 h-3.5" />
                                     Actualizar Pedido
@@ -1089,7 +1098,7 @@ export default function AdminPanel() {
                           />
                           <div>
                             <div className="font-bold text-slate-200">{prod.nombre}</div>
-                            <div className="text-xs text-slate-500 truncate max-w-xs">{prod.descripcion}</div>
+                            <div className="text-xs text-slate-505 truncate max-w-xs">{prod.descripcion}</div>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -1120,7 +1129,7 @@ export default function AdminPanel() {
                               <Edit3 className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => deleteProduct(prod)}
+                              onClick={() => setProductoAEliminar(prod)}
                               className="bg-slate-955 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 text-rose-500 p-2 rounded-lg transition-all"
                               title="Eliminar"
                             >
@@ -1242,25 +1251,43 @@ export default function AdminPanel() {
                   {showClienteForm === 'create' ? (
                     <div className="md:col-span-2">
                       <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wide">Contraseña Inicial</label>
-                      <input
-                        type="password"
-                        required
-                        value={clienteForm.passwordInicial}
-                        onChange={(e) => setClienteForm(prev => ({ ...prev, passwordInicial: e.target.value }))}
-                        className="bg-[#1e293b] text-white border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg w-full p-2.5 text-sm"
-                        placeholder="Contraseña del cliente"
-                      />
+                      <div className="relative w-full">
+                        <input
+                          type={showClientPass ? "text" : "password"}
+                          className="w-full bg-[#1e293b] text-white border border-slate-700 rounded-lg p-2.5 pr-10 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                          placeholder="Contraseña del cliente"
+                          value={clienteForm.passwordInicial}
+                          onChange={(e) => setClienteForm(prev => ({ ...prev, passwordInicial: e.target.value }))}
+                          required
+                        />
+                        <button
+                          type="button"
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white"
+                          onClick={() => setShowClientPass(!showClientPass)}
+                        >
+                          {showClientPass ? <EyeOff size={20} /> : <Eye size={20} />}
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <div className="md:col-span-2">
                       <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wide">Asignar Nueva Contraseña (Opcional)</label>
-                      <input
-                        type="password"
-                        value={clienteForm.asignarNuevaContrasena}
-                        onChange={(e) => setClienteForm(prev => ({ ...prev, asignarNuevaContrasena: e.target.value }))}
-                        className="bg-[#1e293b] text-white border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg w-full p-2.5 text-sm"
-                        placeholder="Ingresa contraseña para restablecer, o deja vacío para mantener la actual"
-                      />
+                      <div className="relative w-full">
+                        <input
+                          type={showResetPass ? "text" : "password"}
+                          className="w-full bg-[#1e293b] text-white border border-slate-700 rounded-lg p-2.5 pr-10 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                          placeholder="Ingresa contraseña para restablecer, o deja vacío para mantener la actual"
+                          value={clienteForm.asignarNuevaContrasena}
+                          onChange={(e) => setClienteForm(prev => ({ ...prev, asignarNuevaContrasena: e.target.value }))}
+                        />
+                        <button
+                          type="button"
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white"
+                          onClick={() => setShowResetPass(!showResetPass)}
+                        >
+                          {showResetPass ? <EyeOff size={20} /> : <Eye size={20} />}
+                        </button>
+                      </div>
                     </div>
                   )}
 
@@ -1354,7 +1381,7 @@ export default function AdminPanel() {
                 {/* Controles de Paginación */}
                 {totalClientePages > 1 && (
                   <div className="flex items-center justify-between border-t border-slate-850 pt-4">
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-slate-505">
                       Mostrando del <span className="font-bold text-slate-400">{indexOfFirstCliente + 1}</span> al <span className="font-bold text-slate-400">{Math.min(indexOfLastCliente, clientesFiltrados.length)}</span> de <span className="font-bold text-slate-400">{clientesFiltrados.length}</span> clientes.
                     </p>
                     <div className="flex gap-2">
@@ -1389,7 +1416,7 @@ export default function AdminPanel() {
               <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-sky-500"></div>
             </div>
           ) : !reportes ? (
-            <div className="text-center py-12 text-slate-500 text-sm bg-slate-900 border border-slate-800 rounded-3xl">
+            <div className="text-center py-12 text-slate-505 text-sm bg-slate-900 border border-slate-800 rounded-3xl">
               Error al compilar reporte financiero consolidado.
             </div>
           ) : (
@@ -1450,7 +1477,7 @@ export default function AdminPanel() {
                 </h2>
 
                 {reportes.licenciasPorCategoria.length === 0 ? (
-                  <p className="text-slate-500 text-sm text-center py-6">Aún no se han despachado licencias en el sistema.</p>
+                  <p className="text-slate-505 text-sm text-center py-6">Aún no se han despachado licencias en el sistema.</p>
                 ) : (
                   <div className="space-y-4">
                     {reportes.licenciasPorCategoria.map((cat, index) => {
@@ -1481,6 +1508,41 @@ export default function AdminPanel() {
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {/* Modal de Confirmación de Eliminación de Producto */}
+      {productoAEliminar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-[#0f172a] border border-slate-800 rounded-xl shadow-2xl max-w-md w-full p-6 relative">
+            <h3 className="text-lg font-bold text-slate-100 mb-4 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-rose-500" />
+              Confirmar Eliminación
+            </h3>
+            <p className="text-slate-350 text-sm mb-6 leading-relaxed">
+              ¿Está seguro de que desea eliminar el producto <span className="text-white font-semibold">"{productoAEliminar.nombre}"</span> del catálogo?
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setProductoAEliminar(null)}
+                className="bg-slate-955 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200 text-xs px-4 py-2.5 rounded-lg transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const id = productoAEliminar.id || productoAEliminar.productoId;
+                  await eliminarProducto(id);
+                  setProductoAEliminar(null);
+                }}
+                className="bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs px-4 py-2.5 rounded-lg transition-all active:scale-95"
+              >
+                Aceptar/Confirmar
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
