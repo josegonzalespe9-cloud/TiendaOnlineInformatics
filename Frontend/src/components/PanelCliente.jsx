@@ -64,7 +64,7 @@ export default function PanelCliente() {
 
   const handleRenovacion = (nombreProducto) => {
     try {
-      const whatsappAdmin = "51900000000";
+      const whatsappAdmin = "51984497138";
       const mensaje = encodeURIComponent(
         `¡Hola Informatics! Quiero renovar mi suscripción de *${nombreProducto}*.\n\n` +
         `Mi correo es: ${user.email}\n` +

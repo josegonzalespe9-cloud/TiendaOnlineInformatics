@@ -33,7 +33,7 @@ export default function BotonSoporteFloat() {
   }, [isOpen]);
 
   const handleButtonClick = () => {
-    const whatsappAdmin = '51900000000';
+    const whatsappAdmin = '51984497138';
     if (location.pathname === '/carrito') {
       // Mensaje parametrizado directo de ayuda con el pago si está en el carrito
       const mensajePago = 'Hola, requiero ayuda para concretar el pago de mi pedido de Informatics';
@@ -54,7 +54,7 @@ export default function BotonSoporteFloat() {
       }
 
       // Preparar el mensaje dinámico para WhatsApp
-      const whatsappAdmin = '51900000000';
+      const whatsappAdmin = '51984497138';
       const mensajeWhatsApp = encodeURIComponent(
         `*SOPORTE TÉCNICO INFORMATICS*\n\n` +
         `*Cliente:* ${nombre}\n` +

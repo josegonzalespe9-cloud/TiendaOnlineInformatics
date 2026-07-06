@@ -157,7 +157,7 @@ export default function Login() {
                   value={whatsapp}
                   onChange={(e) => setWhatsapp(e.target.value)}
                   className="w-full bg-[#1e293b] text-white border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg pl-11 pr-4 py-3 text-sm transition-all placeholder-slate-500"
-                  placeholder="Ej. +51900000000"
+                  placeholder="Ej. +51984497138"
                 />
                 <Phone className="absolute left-4 top-3.5 text-slate-500 w-4 h-4" />
               </div>
