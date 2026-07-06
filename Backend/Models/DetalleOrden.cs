@@ -31,7 +31,7 @@ public class DetalleOrden
     [Column(TypeName = "decimal(18,2)")]
     public decimal PrecioUnitario { get; set; } // Precio congelado al momento del pedido
 
-    [MaxLength(255)]
+    [Column(TypeName = "nvarchar(max)")]
     public string? ClaveEntregada { get; set; } // Clave de licencia o datos de cuenta entregada manualmente
 
     public DateTime? FechaActivacion { get; set; } // Cuándo el administrador completó la orden

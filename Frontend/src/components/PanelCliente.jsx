@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useCart } from '../context/CartContext';
-import { User, ShieldAlert, Key, Calendar, RefreshCw, AlertTriangle, CheckCircle, ExternalLink } from 'lucide-react';
+import { User, ShieldAlert, Key, Calendar, RefreshCw, AlertTriangle, CheckCircle, ExternalLink, Trash2 } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import { API_URL } from '../services/api';
 
@@ -73,6 +73,44 @@ export default function PanelCliente() {
       window.open(`https://api.whatsapp.com/send?phone=${whatsappAdmin}&text=${mensaje}`, '_blank');
     } catch (err) {
       console.error("Error en redirección de renovación:", err);
+    }
+  };
+
+  const handleEliminarLicencia = async (detalleId) => {
+    if (!detalleId) {
+      alert("Error: Identificador de licencia inválido.");
+      return;
+    }
+    
+    const confirmacion = window.confirm("¿Está seguro de que desea dar de baja y eliminar esta licencia permanentemente?");
+    if (!confirmacion) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/api/admin/licencias/${detalleId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response && response.ok) {
+        setServicios((serviciosPrevios) => {
+          if (Array.isArray(serviciosPrevios)) {
+            return serviciosPrevios.filter((ser) => ser && ser.detalleId !== detalleId);
+          }
+          return [];
+        });
+        alert("Licencia eliminada con éxito.");
+      } else {
+        const errorData = response ? await response.json() : null;
+        const mensajeError = errorData && errorData.mensaje ? errorData.mensaje : "Error al procesar la eliminación de la licencia.";
+        alert(mensajeError);
+      }
+    } catch (error) {
+      console.error("Error al eliminar la licencia:", error);
+      alert("Ocurrió un error en el servidor al intentar eliminar la licencia.");
     }
   };
 
@@ -174,8 +212,8 @@ export default function PanelCliente() {
                       <h3 className="text-lg font-bold text-slate-100 line-clamp-1">{ser.productoNombre}</h3>
                     </div>
 
-                    {/* Estado Badge */}
-                    <div>
+                    {/* Estado Badge y Botón de Eliminar */}
+                    <div className="flex items-center gap-2">
                       {exp ? (
                         <span className="flex items-center gap-1.5 text-xs font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2.5 py-1 rounded-full">
                           <AlertTriangle className="w-3.5 h-3.5" />
@@ -187,6 +225,14 @@ export default function PanelCliente() {
                           Activo
                         </span>
                       )}
+
+                      <button
+                        onClick={() => handleEliminarLicencia(ser.detalleId)}
+                        className="bg-slate-950/80 hover:bg-rose-600 border border-slate-800 hover:border-rose-500 text-slate-400 hover:text-white p-2 rounded-lg transition-all duration-300 active:scale-95 flex items-center justify-center shadow-md"
+                        title="Eliminar Licencia"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
 

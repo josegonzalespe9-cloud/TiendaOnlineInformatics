@@ -56,6 +56,10 @@ export default function AdminPanel() {
     asignarNuevaContrasena: ''
   });
 
+  const [selectedCliente, setSelectedCliente] = useState(null);
+  const [clienteHistory, setClienteHistory] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
   // --- ESTADOS PARA REPORTES ---
   const [reportes, setReportes] = useState(null);
   const [loadingReportes, setLoadingReportes] = useState(true);
@@ -404,6 +408,36 @@ export default function AdminPanel() {
       console.error("Error al obtener clientes:", e);
     } finally {
       setLoadingClientes(false);
+    }
+  };
+
+  const fetchClienteHistory = async (cliente) => {
+    if (!cliente || !cliente.id) {
+      alert("Error: El cliente seleccionado no es válido.");
+      return;
+    }
+
+    try {
+      setLoadingHistory(true);
+      setSelectedCliente(cliente);
+      setClienteHistory([]); // Limpiar historial anterior
+
+      const res = await fetch(`${API_URL}/api/ordenes/cliente/${cliente.id}`);
+      if (res && res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setClienteHistory(data);
+        } else {
+          setClienteHistory([]);
+        }
+      } else {
+        alert("No se pudo obtener el historial de licencias del cliente.");
+      }
+    } catch (err) {
+      console.error("Error al obtener historial de cliente:", err);
+      alert("Ocurrió un error en el servidor al consultar el historial.");
+    } finally {
+      setLoadingHistory(false);
     }
   };
 
@@ -1338,41 +1372,170 @@ export default function AdminPanel() {
                     </thead>
                     <tbody className="divide-y divide-slate-800 bg-slate-900/50">
                       {currentClientes.map((c) => (
-                        <tr key={c.id} className="hover:bg-slate-900/80 transition-colors">
-                          <td className="px-6 py-4 whitespace-nowrap font-bold text-slate-200">{c.nombre}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-slate-400 font-mono">{c.email}</td>
-                          <td className="px-6 py-4 whitespace-nowrap font-mono text-slate-300">{c.dni || 'N/A'}</td>
-                          <td className="px-6 py-4 whitespace-nowrap font-mono">
-                            <a 
-                              href={`https://api.whatsapp.com/send?phone=${c.telefono || c.whatsapp}`} 
-                              target="_blank" 
-                              rel="noopener noreferrer" 
-                              className="text-sky-400 hover:underline"
-                            >
-                              {c.telefono || c.whatsapp}
-                            </a>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-center text-slate-300 font-bold">{c.totalPedidosCompletados}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-emerald-400 font-bold font-mono">S/ {c.totalInvertido.toFixed(2)}</td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => openEditCliente(c)}
-                                className="bg-slate-955 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 text-sky-400 p-2 rounded-lg transition-all"
-                                title="Editar"
+                        <React.Fragment key={c.id}>
+                          <tr className="hover:bg-slate-900/80 transition-colors">
+                            <td className="px-6 py-4 whitespace-nowrap font-bold text-slate-200">{c.nombre}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-slate-400 font-mono">{c.email}</td>
+                            <td className="px-6 py-4 whitespace-nowrap font-mono text-slate-300">{c.dni || 'N/A'}</td>
+                            <td className="px-6 py-4 whitespace-nowrap font-mono">
+                              <a 
+                                href={`https://api.whatsapp.com/send?phone=${c.telefono || c.whatsapp}`} 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                className="text-sky-400 hover:underline"
                               >
-                                <Edit3 className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => deleteCliente(c)}
-                                className="bg-slate-955 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 text-rose-500 p-2 rounded-lg transition-all"
-                                title="Dar de baja"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
+                                {c.telefono || c.whatsapp}
+                              </a>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-center text-slate-300 font-bold">{c.totalPedidosCompletados}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-emerald-400 font-bold font-mono">S/ {c.totalInvertido.toFixed(2)}</td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => {
+                                    if (selectedCliente && selectedCliente.id === c.id) {
+                                      setSelectedCliente(null);
+                                    } else {
+                                      fetchClienteHistory(c);
+                                    }
+                                  }}
+                                  className={`p-2 rounded-lg transition-all border ${
+                                    selectedCliente && selectedCliente.id === c.id
+                                      ? 'bg-sky-500/20 border-sky-500 text-sky-400'
+                                      : 'bg-slate-955 hover:bg-slate-900 border-slate-800 hover:border-slate-700 text-slate-300'
+                                  }`}
+                                  title="Ver Historial de Licencias"
+                                >
+                                  <FileText className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => openEditCliente(c)}
+                                  className="bg-slate-955 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 text-sky-400 p-2 rounded-lg transition-all"
+                                  title="Editar"
+                                >
+                                  <Edit3 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => deleteCliente(c)}
+                                  className="bg-slate-955 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 text-rose-500 p-2 rounded-lg transition-all"
+                                  title="Dar de baja"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+
+                          {/* Historial Detallado del Cliente Seleccionado */}
+                          {selectedCliente && selectedCliente.id === c.id && (
+                            <tr className="bg-slate-955/30">
+                              <td colSpan="7" className="px-6 py-4">
+                                <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-6 space-y-4">
+                                  <div className="flex justify-between items-center pb-2 border-b border-slate-800">
+                                    <h4 className="text-xs font-bold text-sky-400 flex items-center gap-1.5 uppercase tracking-wider">
+                                      <FileText className="w-4 h-4" />
+                                      Historial de Suscripciones y Claves: {c.nombre}
+                                    </h4>
+                                    <button
+                                      onClick={() => setSelectedCliente(null)}
+                                      className="text-slate-450 hover:text-slate-200 text-xs transition-colors"
+                                    >
+                                      Cerrar Detalle
+                                    </button>
+                                  </div>
+
+                                  {loadingHistory ? (
+                                    <div className="flex justify-center py-6">
+                                      <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-sky-500"></div>
+                                    </div>
+                                  ) : !Array.isArray(clienteHistory) || clienteHistory.length === 0 ? (
+                                    <p className="text-slate-500 text-xs italic py-2">
+                                      No se encontraron licencias activas o completadas para este cliente.
+                                    </p>
+                                  ) : (
+                                    <div className="overflow-x-auto rounded-xl border border-slate-850">
+                                      <table className="min-w-full divide-y divide-slate-850 text-xs text-left">
+                                        <thead className="bg-slate-900 text-slate-400 uppercase text-[10px] tracking-wider">
+                                          <tr>
+                                            <th className="px-4 py-3">Producto / Licencia</th>
+                                            <th className="px-4 py-3">Categoría</th>
+                                            <th className="px-4 py-3">Estado de Compra</th>
+                                            <th className="px-4 py-3">Fecha Vencimiento</th>
+                                            <th className="px-4 py-3">Días Restantes</th>
+                                            <th className="px-4 py-3">Clave Entregada</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-850 bg-slate-950/30">
+                                          {clienteHistory.map((h, idx) => {
+                                            if (!h) return null;
+                                            
+                                            // Calcular días restantes
+                                            let diasRestantes = null;
+                                            let alertaVencimiento = false;
+                                            if (h.fechaVencimiento) {
+                                              const fVenc = new Date(h.fechaVencimiento);
+                                              if (!isNaN(fVenc.getTime())) {
+                                                const ahora = new Date();
+                                                const diffTime = fVenc.getTime() - ahora.getTime();
+                                                diasRestantes = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                                              } else {
+                                                alertaVencimiento = true;
+                                              }
+                                            } else {
+                                              alertaVencimiento = true;
+                                            }
+
+                                            return (
+                                              <tr key={h.detalleId || idx} className="hover:bg-slate-900/40 transition-colors">
+                                                <td className="px-4 py-3 font-bold text-slate-300">{h.productoNombre || 'N/A'}</td>
+                                                <td className="px-4 py-3 text-slate-400">{h.categoria || 'N/A'}</td>
+                                                <td className="px-4 py-3">
+                                                  <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
+                                                    h.estadoOrden === 'Completada'
+                                                      ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                                      : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                                  }`}>
+                                                    {h.estadoOrden || 'Pendiente'}
+                                                  </span>
+                                                </td>
+                                                <td className="px-4 py-3 text-slate-400 font-mono">
+                                                  {h.fechaVencimiento ? formatearFecha(h.fechaVencimiento) : 'N/A'}
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                  {alertaVencimiento ? (
+                                                    <span 
+                                                      onClick={() => alert(`Alerta: La fecha de vencimiento es inválida o nula para el producto "${h.productoNombre || ''}"`)}
+                                                      className="inline-flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 text-amber-400 px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer hover:bg-amber-500/20 transition-all"
+                                                      title="Haga clic para ver detalles"
+                                                    >
+                                                      <AlertTriangle className="w-3 h-3" />
+                                                      Alerta: Fecha Nula
+                                                    </span>
+                                                  ) : diasRestantes > 0 ? (
+                                                    <span className="text-emerald-400 font-bold font-mono">
+                                                      {diasRestantes} días
+                                                    </span>
+                                                  ) : (
+                                                    <span className="text-rose-500 font-bold font-mono">
+                                                      Expiró ({Math.abs(diasRestantes)} días)
+                                                    </span>
+                                                  )}
+                                                </td>
+                                                <td className="px-4 py-3 font-mono text-slate-450 truncate max-w-xs select-all" title={h.clave}>
+                                                  {h.clave || 'Sin Clave'}
+                                                </td>
+                                              </tr>
+                                            );
+                                          })}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
                       ))}
                     </tbody>
                   </table>

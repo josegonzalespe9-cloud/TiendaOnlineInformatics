@@ -518,16 +518,29 @@ app.MapPut("/api/admin/ordenes/{ordenId}/completar", async (int ordenId, Complet
 
             // Consultar producto de la BD para asegurar persistencia
             var product = await db.Productos.FindAsync(detalle.ProductoId);
-            if (product != null && product.DuracionMeses > 0)
+            if (product != null)
             {
-                detalle.FechaVencimiento = DateTime.UtcNow.AddMonths(product.DuracionMeses);
+                if (product.DuracionMeses == 1)
+                {
+                    detalle.FechaVencimiento = DateTime.UtcNow.AddDays(30);
+                }
+                else if (product.DuracionMeses > 1)
+                {
+                    detalle.FechaVencimiento = DateTime.UtcNow.AddMonths(product.DuracionMeses);
+                }
+                else
+                {
+                    // Para licencias permanentes (0 meses), guardamos un vencimiento a 10 años para evitar que viaje como NULL
+                    detalle.FechaVencimiento = DateTime.UtcNow.AddYears(10);
+                }
             }
             else
             {
-                detalle.FechaVencimiento = null; 
+                // En caso de que el producto sea nulo, asignamos por defecto 30 días para evitar valores nulos en BD
+                detalle.FechaVencimiento = DateTime.UtcNow.AddDays(30);
             }
 
-            detalle.AlertaEnviada = false; 
+            detalle.AlertaEnviada = false;
         }
 
         await db.SaveChangesAsync();
@@ -898,6 +911,30 @@ app.MapDelete("/api/admin/clientes/{id}", async (int id, ApplicationDbContext db
         var log = $"Fecha: {DateTime.UtcNow}\nComponente: AdminDeleteCliente\nMensaje: {ex.Message}\nTraza: {ex.StackTrace}";
         Console.WriteLine(log);
         return Results.Json(new { mensaje = "Error al desactivar el cliente.", detalle = ex.Message }, statusCode: 500);
+    }
+});
+
+// 13e. GESTIÓN DE LICENCIAS - ELIMINAR/DESACTIVAR REGISTRO DE LICENCIA
+app.MapDelete("/api/admin/licencias/{id}", async (int id, ApplicationDbContext db) =>
+{
+    try
+    {
+        var detalle = await db.DetalleOrdenes.FindAsync(id);
+        if (detalle == null)
+        {
+            return Results.NotFound(new { mensaje = "Licencia no encontrada." });
+        }
+
+        db.DetalleOrdenes.Remove(detalle);
+        await db.SaveChangesAsync();
+
+        return Results.Ok(new { mensaje = "Licencia eliminada con éxito." });
+    }
+    catch (Exception ex)
+    {
+        var log = $"Fecha: {DateTime.UtcNow}\nComponente: AdminDeleteLicencia\nMensaje: {ex.Message}\nTraza: {ex.StackTrace}";
+        Console.WriteLine(log);
+        return Results.Json(new { mensaje = "Error al eliminar la licencia.", detalle = ex.Message }, statusCode: 500);
     }
 });
 
