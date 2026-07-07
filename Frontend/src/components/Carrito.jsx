@@ -206,7 +206,7 @@ export default function Carrito() {
               disabled={loading}
               className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-bold py-4 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 mt-4 shadow-lg hover:shadow-emerald-500/20 active:scale-[0.98]"
             >
-              {loading ? 'Procesando...' : 'Confirmar Pedido (Mago de Oz)'}
+              {loading ? 'Procesando...' : 'Confirmar Pedido por WhatsApp'}
               <ArrowRight className="w-5 h-5" />
             </button>
           ) : (
@@ -222,13 +222,13 @@ export default function Carrito() {
           )}
 
           <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 text-xs text-slate-400 space-y-2">
-            <p className="font-semibold text-slate-300">💡 Flujo Mago de Oz:</p>
+            <p className="font-semibold text-slate-300">💡 Proceso de Compra:</p>
             <p>Al confirmar el pedido, registramos tu compra y congelamos el precio. Serás redirigido a WhatsApp para concretar el pago manual y recibir tus credenciales de forma inmediata.</p>
           </div>
         </div>
       </div>
 
-      {/* Modal de Confirmación Exitosa (Wizard of Oz) */}
+      {/* Modal de Confirmación Exitosa */}
       {showModal && (
         <div 
           className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4"

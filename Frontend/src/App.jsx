@@ -138,7 +138,7 @@ function MainLayout() {
       {/* Footer */}
       <footer className="bg-slate-950 border-t border-slate-900/60 py-6 text-center text-xs text-slate-500">
         <p>© 2026 Informatics Corporation. Todos los derechos reservados.</p>
-        <p className="mt-1 text-slate-655 font-mono">MVP Mago de Oz con backend .NET 10 y React.</p>
+        <p className="mt-1 text-slate-655 font-mono">Plataforma de Gestión Comercial con backend .NET 10 y React.</p>
       </footer>
     </div>
   );
