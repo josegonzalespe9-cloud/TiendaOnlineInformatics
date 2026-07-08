@@ -5,17 +5,21 @@ import { Navigate } from 'react-router-dom';
 import { API_URL } from '../services/api';
 
 export default function PanelCliente() {
-  const { user } = useCart();
+  const { user, token } = useCart();
   const [servicios, setServicios] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchServicios = async () => {
-      if (!user) return;
+      if (!user || !token) return;
       
       try {
         setLoading(true);
-        const response = await fetch(`${API_URL}/api/ordenes/cliente/${user.id}`);
+        const response = await fetch(`${API_URL}/api/ordenes/cliente/${user.id}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
         if (!response.ok) {
           throw new Error('Error al obtener licencias de cliente');
         }
@@ -81,6 +85,10 @@ export default function PanelCliente() {
       alert("Error: Identificador de licencia inválido.");
       return;
     }
+    if (!token) {
+      alert("Error: Token de autorización no provisto.");
+      return;
+    }
     
     const confirmacion = window.confirm("¿Está seguro de que desea dar de baja y eliminar esta licencia permanentemente?");
     if (!confirmacion) {
@@ -91,7 +99,8 @@ export default function PanelCliente() {
       const response = await fetch(`${API_URL}/api/admin/licencias/${detalleId}`, {
         method: 'DELETE',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         }
       });
 

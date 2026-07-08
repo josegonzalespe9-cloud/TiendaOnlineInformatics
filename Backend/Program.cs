@@ -417,10 +417,18 @@ app.MapPost("/api/ordenes", async (CrearOrdenDto dto, ApplicationDbContext db) =
 });
 
 // 5. PANEL DE CLIENTE: LICENCIAS Y ESTADOS TEMPORALES
-app.MapGet("/api/ordenes/cliente/{usuarioId}", async (int usuarioId, ApplicationDbContext db) =>
+app.MapGet("/api/ordenes/cliente/{usuarioId}", async (int usuarioId, HttpContext httpContext, ApplicationDbContext db) =>
 {
     try
     {
+        var authUserId = (int?)httpContext.Items["UsuarioId"];
+        var authRole = (string?)httpContext.Items["Rol"];
+        
+        if (authUserId != usuarioId && authRole != "Admin" && authRole != "Administrador")
+        {
+            return Results.Json(new { mensaje = "Acceso denegado. No tiene permisos para consultar este historial." }, statusCode: 403);
+        }
+
         var ordenes = await db.Ordenes
             .Include(o => o.Detalles)
                 .ThenInclude(d => d.Producto)
@@ -462,7 +470,7 @@ app.MapGet("/api/ordenes/cliente/{usuarioId}", async (int usuarioId, Application
         Console.WriteLine(log);
         return Results.Json(new { mensaje = "Error al consultar licencias del cliente." }, statusCode: 500);
     }
-});
+}).RequireAuthentication();
 
 // 6. BACKOFFICE: GESTIÓN DE ÓRDENES
 app.MapGet("/api/admin/ordenes", async (ApplicationDbContext db) =>
@@ -484,7 +492,7 @@ app.MapGet("/api/admin/ordenes", async (ApplicationDbContext db) =>
         Console.WriteLine(log);
         return Results.Json(new { mensaje = "Error al obtener órdenes para el administrador." }, statusCode: 500);
     }
-});
+}).RequireAdminRole();
 
 // 7. BACKOFFICE: COMPLETAR ORDEN Y ENTRADA DE CLAVE (CALCULA FECHA DE VENCIMIENTO SI DURA > 0 MESES)
 app.MapPut("/api/admin/ordenes/{ordenId}/completar", async (int ordenId, CompletarOrdenDto dto, ApplicationDbContext db) =>
@@ -552,7 +560,7 @@ app.MapPut("/api/admin/ordenes/{ordenId}/completar", async (int ordenId, Complet
         Console.WriteLine(log);
         return Results.Json(new { mensaje = "Error al completar la orden." }, statusCode: 500);
     }
-});
+}).RequireAdminRole();
 
 // 7b. BACKOFFICE: CANCELAR ORDEN
 app.MapPut("/api/admin/ordenes/{id}/cancelar", async (int id, ApplicationDbContext db) =>
@@ -579,7 +587,7 @@ app.MapPut("/api/admin/ordenes/{id}/cancelar", async (int id, ApplicationDbConte
         Console.WriteLine(log);
         return Results.Json(new { mensaje = "Error al cancelar la orden." }, statusCode: 500);
     }
-});
+}).RequireAdminRole();
 
 // 7c. BACKOFFICE: EDITAR CANTIDADES DE ORDEN PENDIENTE (RECALCULA EL TOTAL)
 app.MapPut("/api/admin/ordenes/{id}/editar", async (int id, EditarOrdenDto dto, ApplicationDbContext db) =>
@@ -641,7 +649,7 @@ app.MapPut("/api/admin/ordenes/{id}/editar", async (int id, EditarOrdenDto dto, 
         Console.WriteLine(log);
         return Results.Json(new { mensaje = "Error al editar la orden.", detalle = ex.Message }, statusCode: 500);
     }
-});
+}).RequireAdminRole();
 
 // 8. DASHBOARD INTERNO: ALERTAS DE RENOVACIÓN DE MENOS O IGUAL A 5 DÍAS
 app.MapGet("/api/admin/renovaciones", async (ApplicationDbContext db) =>
@@ -677,7 +685,7 @@ app.MapGet("/api/admin/renovaciones", async (ApplicationDbContext db) =>
         Console.WriteLine(log);
         return Results.Json(new { mensaje = "Error al consultar renovaciones." }, statusCode: 500);
     }
-});
+}).RequireAdminRole();
 
 // --- NUEVOS ENDPOINTS ARCHITECTURA EMPRESARIAL ---
 
@@ -695,7 +703,7 @@ app.MapGet("/api/admin/productos", async (ApplicationDbContext db) =>
         Console.WriteLine(log);
         return Results.Json(new { mensaje = "Error al obtener catálogo de productos.", detalle = ex.Message }, statusCode: 500);
     }
-});
+}).RequireAdminRole();
 
 // 10. CRUD PRODUCTOS - CREAR
 app.MapPost("/api/admin/productos", async (Producto producto, ApplicationDbContext db) =>
@@ -717,7 +725,7 @@ app.MapPost("/api/admin/productos", async (Producto producto, ApplicationDbConte
         Console.WriteLine(log);
         return Results.Json(new { mensaje = "Error al registrar el producto.", detalle = ex.Message }, statusCode: 500);
     }
-});
+}).RequireAdminRole();
 
 // 11. CRUD PRODUCTOS - ACTUALIZAR
 app.MapPut("/api/admin/productos/{id}", async (int id, Producto producto, ApplicationDbContext db) =>
@@ -748,7 +756,7 @@ app.MapPut("/api/admin/productos/{id}", async (int id, Producto producto, Applic
         Console.WriteLine(log);
         return Results.Json(new { mensaje = "Error al actualizar el producto.", detalle = ex.Message }, statusCode: 500);
     }
-});
+}).RequireAdminRole();
 
 // 12. CRUD PRODUCTOS - ELIMINAR (MIGRADO A BORRADO LÓGICO PARA PRESERVAR INTEGRIDAD REFERENCIAL)
 app.MapDelete("/api/admin/productos/{id}", async (int id, ApplicationDbContext db) =>
@@ -773,7 +781,7 @@ app.MapDelete("/api/admin/productos/{id}", async (int id, ApplicationDbContext d
         Console.WriteLine(log);
         return Results.Json(new { mensaje = "Error al desactivar el producto.", detalle = ex.Message }, statusCode: 500);
     }
-});
+}).RequireAdminRole();
 
 // 13. GESTIÓN DE CLIENTES CON ESTADÍSTICAS (SÓLO RETORNA CLIENTES ACTIVOS)
 app.MapGet("/api/admin/clientes", async (ApplicationDbContext db) =>
@@ -803,7 +811,7 @@ app.MapGet("/api/admin/clientes", async (ApplicationDbContext db) =>
         Console.WriteLine(log);
         return Results.Json(new { mensaje = "Error al obtener el listado de clientes.", detalle = ex.Message }, statusCode: 500);
     }
-});
+}).RequireAdminRole();
 
 // 13b. GESTIÓN DE CLIENTES - REGISTRAR CLIENTE MANUALMENTE (CON CONTRASEÑA ENCRIPTADA Y DNI / TELEFONO)
 app.MapPost("/api/admin/clientes", async (RegistrarClienteDto dto, ApplicationDbContext db) =>
@@ -844,7 +852,7 @@ app.MapPost("/api/admin/clientes", async (RegistrarClienteDto dto, ApplicationDb
         Console.WriteLine(log);
         return Results.Json(new { mensaje = "Error al registrar el cliente.", detalle = ex.Message }, statusCode: 500);
     }
-});
+}).RequireAdminRole();
 
 // 13c. GESTIÓN DE CLIENTES - ACTUALIZAR PERFIL Y NUEVA CONTRASEÑA OPCIONAL
 app.MapPut("/api/admin/clientes/{id}", async (int id, EditarClienteDto dto, ApplicationDbContext db) =>
@@ -888,7 +896,7 @@ app.MapPut("/api/admin/clientes/{id}", async (int id, EditarClienteDto dto, Appl
         Console.WriteLine(log);
         return Results.Json(new { mensaje = "Error al actualizar el cliente.", detalle = ex.Message }, statusCode: 500);
     }
-});
+}).RequireAdminRole();
 
 // 13d. GESTIÓN DE CLIENTES - ELIMINAR/DESACTIVAR CLIENTE DE FORMA SEGURA (BORRADO LÓGICO)
 app.MapDelete("/api/admin/clientes/{id}", async (int id, ApplicationDbContext db) =>
@@ -912,7 +920,7 @@ app.MapDelete("/api/admin/clientes/{id}", async (int id, ApplicationDbContext db
         Console.WriteLine(log);
         return Results.Json(new { mensaje = "Error al desactivar el cliente.", detalle = ex.Message }, statusCode: 500);
     }
-});
+}).RequireAdminRole();
 
 // 13e. GESTIÓN DE LICENCIAS - ELIMINAR/DESACTIVAR REGISTRO DE LICENCIA
 app.MapDelete("/api/admin/licencias/{id}", async (int id, ApplicationDbContext db) =>
@@ -936,7 +944,7 @@ app.MapDelete("/api/admin/licencias/{id}", async (int id, ApplicationDbContext d
         Console.WriteLine(log);
         return Results.Json(new { mensaje = "Error al eliminar la licencia.", detalle = ex.Message }, statusCode: 500);
     }
-});
+}).RequireAdminRole();
 
 // 14. REPORTES COMERCIALES Y CONSOLIDADOS FINANCIEROS (SIN CONTROL DE STOCK LOCAL)
 app.MapGet("/api/admin/reportes", async (ApplicationDbContext db) =>
@@ -980,7 +988,7 @@ app.MapGet("/api/admin/reportes", async (ApplicationDbContext db) =>
         Console.WriteLine(log);
         return Results.Json(new { mensaje = "Error al procesar el reporte financiero consolidado.", detalle = ex.Message }, statusCode: 500);
     }
-});
+}).RequireAdminRole();
 
 app.Run();
 
@@ -1002,6 +1010,19 @@ public static class JwtHelper
             .Replace("=", "")
             .Replace('+', '-')
             .Replace('/', '_');
+    }
+
+    private static byte[] Base64UrlDecode(string input)
+    {
+        string output = input.Replace('-', '+').Replace('_', '/');
+        switch (output.Length % 4)
+        {
+            case 0: break;
+            case 2: output += "=="; break;
+            case 3: output += "="; break;
+            default: throw new ArgumentOutOfRangeException(nameof(input), "Cadena base64url no válida.");
+        }
+        return Convert.FromBase64String(output);
     }
 
     public static string GenerarToken(int usuarioId, string email, string rol)
@@ -1030,5 +1051,169 @@ public static class JwtHelper
             string signatureBase64 = Base64UrlEncode(signatureBytes);
             return $"{message}.{signatureBase64}";
         }
+    }
+
+    public static (bool Valido, int UsuarioId, string Email, string Rol) ValidarToken(string token)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(token)) return (false, 0, "", "");
+
+            var parts = token.Split('.');
+            if (parts.Length != 3) return (false, 0, "", "");
+
+            var headerBase64 = parts[0];
+            var payloadBase64 = parts[1];
+            var signatureBase64 = parts[2];
+
+            string message = $"{headerBase64}.{payloadBase64}";
+            string secret = "InformaticsSuperSecretKeyForJWTAuth2026";
+            
+            using (var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret)))
+            {
+                byte[] signatureBytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(message));
+                string computedSignature = Base64UrlEncode(signatureBytes);
+                if (computedSignature != signatureBase64) return (false, 0, "", "");
+            }
+
+            var payloadBytes = Base64UrlDecode(payloadBase64);
+            var payloadJson = Encoding.UTF8.GetString(payloadBytes);
+            var payload = JsonSerializer.Deserialize<Dictionary<string, object>>(payloadJson);
+            if (payload == null) return (false, 0, "", "");
+
+            if (payload.TryGetValue("exp", out var expObj))
+            {
+                long exp = 0;
+                if (expObj is JsonElement element && element.ValueKind == JsonValueKind.Number)
+                {
+                    exp = element.GetInt64();
+                }
+                else
+                {
+                    exp = Convert.ToInt64(expObj);
+                }
+
+                if (DateTimeOffset.UtcNow.ToUnixTimeSeconds() > exp)
+                {
+                    return (false, 0, "", ""); // Expirado
+                }
+            }
+
+            int usuarioId = 0;
+            if (payload.TryGetValue("sub", out var subObj))
+            {
+                usuarioId = int.Parse(subObj.ToString()!);
+            }
+
+            string email = "";
+            if (payload.TryGetValue("email", out var emailObj))
+            {
+                email = emailObj.ToString()!;
+            }
+
+            string rol = "";
+            if (payload.TryGetValue("http://schemas.microsoft.com/ws/2008/06/identity/claims/role", out var rolObj))
+            {
+                rol = rolObj.ToString()!;
+            }
+
+            return (true, usuarioId, email, rol);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al validar token: {ex.Message}");
+            return (false, 0, "", "");
+        }
+    }
+}
+
+// --- MIDDLEWARE / FILTROS DE AUTORIZACIÓN PARA MINIMAL APIS ---
+public static class AuthorizationFilters
+{
+    public static RouteHandlerBuilder RequireAuthentication(this RouteHandlerBuilder builder)
+    {
+        return builder.AddEndpointFilter(async (context, next) =>
+        {
+            try
+            {
+                var httpContext = context.HttpContext;
+                
+                if (!httpContext.Request.Headers.TryGetValue("Authorization", out var authHeaderValues))
+                {
+                    return Results.Json(new { mensaje = "Acceso denegado. Falta cabecera de autorización." }, statusCode: 401);
+                }
+
+                var authHeader = authHeaderValues.ToString();
+                if (string.IsNullOrWhiteSpace(authHeader) || !authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                {
+                    return Results.Json(new { mensaje = "Acceso denegado. Formato de token inválido." }, statusCode: 401);
+                }
+
+                var token = authHeader.Substring("Bearer ".Length).Trim();
+                var (valido, usuarioId, email, rol) = JwtHelper.ValidarToken(token);
+
+                if (!valido)
+                {
+                    return Results.Json(new { mensaje = "Acceso denegado. Token inválido o expirado." }, statusCode: 401);
+                }
+
+                httpContext.Items["UsuarioId"] = usuarioId;
+                httpContext.Items["Email"] = email;
+                httpContext.Items["Rol"] = rol;
+
+                return await next(context);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error en filtro de autenticación: {ex.Message}\n{ex.StackTrace}");
+                return Results.Json(new { mensaje = "Error interno durante la autenticación.", detalle = ex.Message }, statusCode: 500);
+            }
+        });
+    }
+
+    public static RouteHandlerBuilder RequireAdminRole(this RouteHandlerBuilder builder)
+    {
+        return builder.AddEndpointFilter(async (context, next) =>
+        {
+            try
+            {
+                var httpContext = context.HttpContext;
+                
+                if (!httpContext.Request.Headers.TryGetValue("Authorization", out var authHeaderValues))
+                {
+                    return Results.Json(new { mensaje = "Acceso denegado. Falta cabecera de autorización." }, statusCode: 401);
+                }
+
+                var authHeader = authHeaderValues.ToString();
+                if (string.IsNullOrWhiteSpace(authHeader) || !authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                {
+                    return Results.Json(new { mensaje = "Acceso denegado. Formato de token inválido." }, statusCode: 401);
+                }
+
+                var token = authHeader.Substring("Bearer ".Length).Trim();
+                var (valido, usuarioId, email, rol) = JwtHelper.ValidarToken(token);
+
+                if (!valido)
+                {
+                    return Results.Json(new { mensaje = "Acceso denegado. Token inválido o expirado." }, statusCode: 401);
+                }
+
+                if (rol != "Admin" && rol != "Administrador")
+                {
+                    return Results.Json(new { mensaje = "Acceso denegado. Se requiere rol de Administrador." }, statusCode: 403);
+                }
+
+                httpContext.Items["UsuarioId"] = usuarioId;
+                httpContext.Items["Email"] = email;
+                httpContext.Items["Rol"] = rol;
+
+                return await next(context);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error en filtro de autorización de administrador: {ex.Message}\n{ex.StackTrace}");
+                return Results.Json(new { mensaje = "Error interno durante la autorización.", detalle = ex.Message }, statusCode: 500);
+            }
+        });
     }
 }

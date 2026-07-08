@@ -9,7 +9,7 @@ import { Navigate } from 'react-router-dom';
 import { API_URL } from '../services/api';
 
 export default function AdminPanel() {
-  const { user } = useCart();
+  const { user, token } = useCart();
   const [tab, setTab] = useState('ordenes'); // 'ordenes' | 'productos' | 'clientes' | 'reportes'
 
   // --- ESTADOS PARA ÓRDENES ---
@@ -119,16 +119,28 @@ export default function AdminPanel() {
 
   // --- 1. MÓDULO DE ÓRDENES: OBTENER DATOS ---
   const fetchAdminData = async () => {
+    if (!token) {
+      console.warn("No hay un token de autenticación válido disponible.");
+      return;
+    }
     try {
       setLoadingOrdenes(true);
-      const resOrdenes = await fetch(`${API_URL}/api/admin/ordenes`);
+      const resOrdenes = await fetch(`${API_URL}/api/admin/ordenes`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       if (resOrdenes.ok) {
         const dataOrd = await resOrdenes.json();
         setOrdenes(dataOrd);
       } else {
         throw new Error('Error al conectar con el endpoint de órdenes.');
       }
-      const resRenovaciones = await fetch(`${API_URL}/api/admin/renovaciones`);
+      const resRenovaciones = await fetch(`${API_URL}/api/admin/renovaciones`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       if (resRenovaciones.ok) {
         const dataRen = await resRenovaciones.json();
         setRenovaciones(dataRen);
@@ -161,11 +173,16 @@ export default function AdminPanel() {
   };
 
   const submitCompletarOrden = async (ordenId) => {
+    if (!token || !ordenId) {
+      alert("Error: Token de autorización o identificador de orden no provisto.");
+      return;
+    }
     try {
       const response = await fetch(`${API_URL}/api/admin/ordenes/${ordenId}/completar`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           clavesPorDetalle: clavesForm
@@ -186,6 +203,10 @@ export default function AdminPanel() {
   };
 
   const handleCancelarOrden = async (ordenId) => {
+    if (!token || !ordenId) {
+      alert("Error: Token de autorización o identificador de orden no provisto.");
+      return;
+    }
     if (!window.confirm('¿Está seguro de que desea cancelar esta orden de forma definitiva?')) {
       return;
     }
@@ -194,7 +215,8 @@ export default function AdminPanel() {
       const response = await fetch(`${API_URL}/api/admin/ordenes/${ordenId}/cancelar`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         }
       });
 
@@ -241,11 +263,16 @@ export default function AdminPanel() {
   };
 
   const submitEditarOrden = async (ordenId) => {
+    if (!token || !ordenId) {
+      alert("Error: Token de autorización o identificador de orden no provisto.");
+      return;
+    }
     try {
       const response = await fetch(`${API_URL}/api/admin/ordenes/${ordenId}/editar`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           items: editOrderItems.map(item => ({
@@ -270,9 +297,17 @@ export default function AdminPanel() {
 
   // --- 2. MÓDULO DE PRODUCTOS: CRUD ---
   const fetchProductos = async () => {
+    if (!token) {
+      console.warn("No hay un token de autenticación válido disponible.");
+      return;
+    }
     try {
       setLoadingProductos(true);
-      const res = await fetch(`${API_URL}/api/admin/productos`);
+      const res = await fetch(`${API_URL}/api/admin/productos`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       if (res.ok) {
         const data = await res.json();
         setProductos(data);
@@ -330,6 +365,10 @@ export default function AdminPanel() {
 
   const submitProductForm = async (e) => {
     e.preventDefault();
+    if (!token) {
+      alert("Error: Token de autorización no provisto.");
+      return;
+    }
     try {
       const id = editingProducto?.id || editingProducto?.productoId;
       const url = showProductForm === 'create' 
@@ -341,7 +380,8 @@ export default function AdminPanel() {
       const response = await fetch(url, {
         method: method,
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify(productForm)
       });
@@ -360,8 +400,8 @@ export default function AdminPanel() {
   };
 
   const eliminarProducto = async (prodId) => {
-    if (!prodId) {
-      alert("Error: No se pudo encontrar el identificador del producto.");
+    if (!token || !prodId) {
+      alert("Error: Token de autorización o identificador de producto no provisto.");
       return;
     }
 
@@ -369,7 +409,8 @@ export default function AdminPanel() {
       const response = await fetch(`${API_URL}/api/admin/productos/${prodId}`, {
         method: 'DELETE',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         }
       });
 
@@ -395,9 +436,17 @@ export default function AdminPanel() {
 
   // --- 3. MÓDULO DE CLIENTES: CRUD ---
   const fetchClientes = async () => {
+    if (!token) {
+      console.warn("No hay un token de autenticación válido disponible.");
+      return;
+    }
     try {
       setLoadingClientes(true);
-      const res = await fetch(`${API_URL}/api/admin/clientes`);
+      const res = await fetch(`${API_URL}/api/admin/clientes`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       if (res.ok) {
         const data = await res.json();
         setClientes(data);
@@ -416,13 +465,21 @@ export default function AdminPanel() {
       alert("Error: El cliente seleccionado no es válido.");
       return;
     }
+    if (!token) {
+      alert("Error: Token de autorización no provisto.");
+      return;
+    }
 
     try {
       setLoadingHistory(true);
       setSelectedCliente(cliente);
       setClienteHistory([]); // Limpiar historial anterior
 
-      const res = await fetch(`${API_URL}/api/ordenes/cliente/${cliente.id}`);
+      const res = await fetch(`${API_URL}/api/ordenes/cliente/${cliente.id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       if (res && res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {
@@ -473,12 +530,17 @@ export default function AdminPanel() {
 
   const submitClienteForm = async (e) => {
     e.preventDefault();
+    if (!token) {
+      alert("Error: Token de autorización no provisto.");
+      return;
+    }
     try {
       if (showClienteForm === 'create') {
         const response = await fetch(`${API_URL}/api/admin/clientes`, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({
             nombre: clienteForm.nombre,
@@ -496,11 +558,16 @@ export default function AdminPanel() {
 
         alert('¡Cliente creado y guardado con éxito!');
       } else {
-        const id = editingCliente.id;
+        const id = editingCliente?.id;
+        if (!id) {
+          alert("Error: Identificador del cliente no válido.");
+          return;
+        }
         const response = await fetch(`${API_URL}/api/admin/clientes/${id}`, {
           method: 'PUT',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({
             nombre: clienteForm.nombre,
@@ -534,6 +601,10 @@ export default function AdminPanel() {
       alert("Error: No se pudo encontrar el identificador del cliente.");
       return;
     }
+    if (!token) {
+      alert("Error: Token de autorización no provisto.");
+      return;
+    }
 
     if (!window.confirm(`¿Está seguro de que desea dar de baja al cliente "${cliente.nombre}"?`)) return;
 
@@ -541,7 +612,8 @@ export default function AdminPanel() {
       const response = await fetch(`${API_URL}/api/admin/clientes/${id}`, {
         method: 'DELETE',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         }
       });
 
@@ -559,9 +631,17 @@ export default function AdminPanel() {
 
   // --- 4. MÓDULO DE REPORTES: CONSOLIDADO ---
   const fetchReportes = async () => {
+    if (!token) {
+      console.warn("No hay un token de autenticación válido disponible.");
+      return;
+    }
     try {
       setLoadingReportes(true);
-      const res = await fetch(`${API_URL}/api/admin/reportes`);
+      const res = await fetch(`${API_URL}/api/admin/reportes`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       if (res.ok) {
         const data = await res.json();
         setReportes(data);
