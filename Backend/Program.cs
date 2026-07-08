@@ -328,7 +328,19 @@ app.MapGet("/api/productos", async (ApplicationDbContext db) =>
 {
     try
     {
-        var productos = await db.Productos.Where(p => p.Activo).ToListAsync();
+        var productos = await db.Productos
+            .Where(producto => producto.Activo)
+            .Select(producto => new ProductoExternoDto(
+                producto.Id,
+                producto.Nombre,
+                producto.Descripcion,
+                producto.Precio,
+                producto.DuracionMeses,
+                producto.Categoria,
+                producto.ImagenUrl,
+                producto.Activo
+            ))
+            .ToListAsync();
         return Results.Ok(productos);
     }
     catch (Exception ex)
@@ -1000,6 +1012,7 @@ public record CompletarOrdenDto(Dictionary<int, string>? ClavesPorDetalle);
 public record EditarOrdenDto(List<ItemOrdenDto> Items);
 public record RegistrarClienteDto(string Nombre, string Email, string? Dni, string? Telefono, string PasswordInicial);
 public record EditarClienteDto(string Nombre, string Email, string? Dni, string? Telefono, string? AsignarNuevaContrasena);
+public record ProductoExternoDto(int Id, string Nombre, string Descripcion, decimal Precio, int DuracionMeses, string Categoria, string ImagenUrl, bool Activo);
 
 // --- JWT TOKEN GENERATION HELPER ---
 public static class JwtHelper
