@@ -261,23 +261,33 @@ app.UseCors("AllowReactApp");
 // --- ENDPOINTS DE LA API CON MANEJO DE ERRORES BLINDADO ---
 
 // 1. REGISTRO DE USUARIO (PÚBLICO)
-app.MapPost("/api/auth/register", async (Usuario usuario, ApplicationDbContext db) =>
+app.MapPost("/api/auth/register", async (RegisterDto registerDto, ApplicationDbContext db) =>
 {
     try
     {
-        if (string.IsNullOrWhiteSpace(usuario.Email) || string.IsNullOrWhiteSpace(usuario.Nombre) || string.IsNullOrWhiteSpace(usuario.WhatsApp))
+        if (registerDto == null || string.IsNullOrWhiteSpace(registerDto.Email) || string.IsNullOrWhiteSpace(registerDto.Nombre) || string.IsNullOrWhiteSpace(registerDto.WhatsApp) || string.IsNullOrWhiteSpace(registerDto.PasswordHash))
         {
             return Results.BadRequest(new { mensaje = "Todos los campos son obligatorios." });
         }
 
-        var existe = await db.Usuarios.AnyAsync(u => u.Email == usuario.Email);
+        var existe = await db.Usuarios.AnyAsync(u => u.Email == registerDto.Email);
         if (existe)
         {
             return Results.Conflict(new { mensaje = "El correo electrónico ya está registrado." });
         }
 
-        usuario.PasswordHash = BCrypt.Net.BCrypt.HashPassword(usuario.PasswordHash);
-        usuario.Activo = true;
+        var usuario = new Usuario
+        {
+            Nombre = registerDto.Nombre,
+            Email = registerDto.Email,
+            WhatsApp = registerDto.WhatsApp,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(registerDto.PasswordHash),
+            Rol = "Cliente",
+            Activo = true,
+            Dni = string.Empty,
+            Telefono = registerDto.WhatsApp
+        };
+
         db.Usuarios.Add(usuario);
         await db.SaveChangesAsync();
 
@@ -296,15 +306,49 @@ app.MapPost("/api/auth/login", async (LoginDto loginDto, ApplicationDbContext db
 {
     try
     {
-        if (string.IsNullOrWhiteSpace(loginDto.Email) || string.IsNullOrWhiteSpace(loginDto.Password))
+        if (loginDto == null || string.IsNullOrWhiteSpace(loginDto.Email) || string.IsNullOrWhiteSpace(loginDto.Password))
         {
             return Results.BadRequest(new { mensaje = "Debe proveer correo y contraseña." });
         }
 
-        var usuario = await db.Usuarios.FirstOrDefaultAsync(u => u.Email == loginDto.Email && u.Activo);
-        if (usuario == null || !BCrypt.Net.BCrypt.Verify(loginDto.Password, usuario.PasswordHash))
+        Usuario? usuario = null;
+        try
         {
-            return Results.Unauthorized();
+            usuario = await db.Usuarios.FirstOrDefaultAsync(u => u.Email == loginDto.Email && u.Activo);
+        }
+        catch (Exception dbEx)
+        {
+            var logDb = $"Fecha: {DateTime.UtcNow}\nComponente: AuthLoginDbQuery\nMensaje: {dbEx.Message}\nTraza: {dbEx.StackTrace}";
+            Console.WriteLine(logDb);
+            return Results.Json(new { 
+                mensaje = "Error al consultar la base de datos (posible restricción de políticas RLS o conexión de red).", 
+                detalle = dbEx.Message 
+            }, statusCode: 500);
+        }
+
+        if (usuario == null)
+        {
+            int totalUsuariosVisibles = 0;
+            try
+            {
+                totalUsuariosVisibles = await db.Usuarios.CountAsync();
+            }
+            catch (Exception)
+            {
+                // Ignorar error secundario al contar
+            }
+
+            Console.WriteLine($"[AuthLogin] Fallo de credenciales para {loginDto.Email}. Total usuarios visibles: {totalUsuariosVisibles}");
+
+            return Results.Json(new { 
+                mensaje = "Credenciales inválidas.",
+                diagnostico = $"El usuario no fue encontrado o RLS está bloqueando la consulta. Total usuarios visibles en tabla: {totalUsuariosVisibles}"
+            }, statusCode: 401);
+        }
+
+        if (!BCrypt.Net.BCrypt.Verify(loginDto.Password, usuario.PasswordHash))
+        {
+            return Results.Json(new { mensaje = "Credenciales inválidas." }, statusCode: 401);
         }
 
         // Generar un token JWT real firmado
@@ -317,9 +361,9 @@ app.MapPost("/api/auth/login", async (LoginDto loginDto, ApplicationDbContext db
     }
     catch (Exception ex)
     {
-        var log = $"Fecha: {DateTime.UtcNow}\nComponente: AuthLogin\nMensaje: {ex.Message}\nTraza: {ex.StackTrace}";
+        var log = $"Fecha: {DateTime.UtcNow}\nComponente: AuthLoginGeneric\nMensaje: {ex.Message}\nTraza: {ex.StackTrace}";
         Console.WriteLine(log);
-        return Results.Json(new { mensaje = "Error interno en el servidor." }, statusCode: 500);
+        return Results.Json(new { mensaje = "Error interno en el servidor.", detalle = ex.Message }, statusCode: 500);
     }
 });
 
@@ -1006,6 +1050,7 @@ app.Run();
 
 // --- DATA TRANSFER OBJECTS (DTOs) ---
 public record LoginDto(string Email, string Password);
+public record RegisterDto(string Nombre, string Email, string PasswordHash, string WhatsApp);
 public record ItemOrdenDto(int ProductoId, int Cantidad);
 public record CrearOrdenDto(int UsuarioId, List<ItemOrdenDto> Items);
 public record CompletarOrdenDto(Dictionary<int, string>? ClavesPorDetalle);

@@ -104,7 +104,9 @@ export default function AdminPanel() {
 
   // --- EFECTO DE CARGA INICIAL Y CAMBIO DE PESTAÑA ---
   useEffect(() => {
-    if (!user || (user.rol !== 'Admin' && user.rol !== 'Administrador')) return;
+    if (user === null || user === undefined || (user.rol !== 'Admin' && user.rol !== 'Administrador') || token === null || token === undefined || token === '') {
+      return;
+    }
     
     if (tab === 'ordenes') {
       fetchAdminData();
@@ -115,7 +117,7 @@ export default function AdminPanel() {
     } else if (tab === 'reportes') {
       fetchReportes();
     }
-  }, [user, tab]);
+  }, [user, tab, token]);
 
   // --- 1. MÓDULO DE ÓRDENES: OBTENER DATOS ---
   const fetchAdminData = async () => {

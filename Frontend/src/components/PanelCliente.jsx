@@ -11,7 +11,9 @@ export default function PanelCliente() {
 
   useEffect(() => {
     const fetchServicios = async () => {
-      if (!user || !token) return;
+      if (user === null || user === undefined || !user.id || token === null || token === undefined || token === '') {
+        return;
+      }
       
       try {
         setLoading(true);
@@ -60,7 +62,7 @@ export default function PanelCliente() {
     };
 
     fetchServicios();
-  }, [user]);
+  }, [user, token]);
 
   if (!user) {
     return <Navigate to="/login" replace />;
