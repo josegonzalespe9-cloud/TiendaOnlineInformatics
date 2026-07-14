@@ -260,6 +260,21 @@ app.UseCors("AllowReactApp");
 
 // --- ENDPOINTS DE LA API CON MANEJO DE ERRORES BLINDADO ---
 
+// 0. HEALTH CHECK (PÚBLICO - ULTRA-LIGERO)
+app.MapGet("/api/ping", () =>
+{
+    try
+    {
+        return Results.Ok(new { status = "healthy" });
+    }
+    catch (Exception ex)
+    {
+        var log = $"Fecha: {DateTime.UtcNow}\nComponente: HealthCheckPing\nMensaje: {ex.Message}\nTraza: {ex.StackTrace}";
+        Console.WriteLine(log);
+        return Results.Json(new { mensaje = "Error interno en el servidor.", detalle = ex.Message }, statusCode: 500);
+    }
+});
+
 // 1. REGISTRO DE USUARIO (PÚBLICO)
 app.MapPost("/api/auth/register", async (RegisterDto registerDto, ApplicationDbContext db) =>
 {
