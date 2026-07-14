@@ -169,80 +169,86 @@ using (var scope = app.Services.CreateScope())
             }
         }
 
-        // Semilla del Usuario Administrador
-        var adminEmail = "admin@informatics.com";
-        if (!db.Usuarios.Any(u => u.Email == adminEmail))
+        // --- SEMBRADO DE DATOS PROTEGIDO POR ENTORNO (SOLO DESARROLLO) ---
+        if (app.Environment.IsDevelopment())
         {
-            var adminUser = new Usuario
+            Console.WriteLine("Entorno de desarrollo detectado. Ejecutando sembrado de datos semilla...");
+
+            // Semilla del Usuario Administrador
+            var adminEmail = "admin@informatics.com";
+            if (!db.Usuarios.Any(u => u.Email == adminEmail))
             {
-                Nombre = "Admin Informatics",
-                Email = adminEmail,
-                Rol = "Admin",
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword("AdminTemp2026!"),
-                WhatsApp = "51984497138",
-                Dni = "00000000",
-                Telefono = "51984497138",
-                Activo = true
+                var adminUser = new Usuario
+                {
+                    Nombre = "Admin Informatics",
+                    Email = adminEmail,
+                    Rol = "Admin",
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword("AdminTemp2026!"),
+                    WhatsApp = "51984497138",
+                    Dni = "00000000",
+                    Telefono = "51984497138",
+                    Activo = true
+                };
+                db.Usuarios.Add(adminUser);
+                db.SaveChanges();
+                Console.WriteLine("Usuario administrador semilla registrado con éxito.");
+            }
+
+            // Semilla del Catálogo Completo (23 Productos) con mapeo de imágenes y costos del proveedor
+            var catalogToSeed = new List<Producto>
+            {
+                // 1. Licencias Anuales (Software)
+                new Producto { Nombre = "Canva Pro (Anual)", Descripcion = "Acceso premium administrado mediante equipo", Precio = 49.90m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/canva.png", CostoProveedor = 20.00m, Activo = true },
+                new Producto { Nombre = "CapCut Pro (Anual)", Descripcion = "Edición de video premium anual", Precio = 69.90m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/capcut.png", CostoProveedor = 30.00m, Activo = true },
+                new Producto { Nombre = "ESET Internet Security", Descripcion = "Activación retail de 365 días", Precio = 39.90m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/eset.png", CostoProveedor = 15.00m, Activo = true },
+                new Producto { Nombre = "Office 365 A3", Descripcion = "Suscripción anual educativa de Office 365", Precio = 59.90m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/office365.png", CostoProveedor = 25.00m, Activo = true },
+                new Producto { Nombre = "Adobe Creative Cloud", Descripcion = "Acceso completo a todas las aplicaciones creativas", Precio = 120.00m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/adobe.png", CostoProveedor = 60.00m, Activo = true },
+                new Producto { Nombre = "Autodesk Standard", Descripcion = "Licencia oficial Autodesk Suite Standard", Precio = 150.00m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/autodeskstandado.png", CostoProveedor = 70.00m, Activo = true },
+                new Producto { Nombre = "Autodesk Revit", Descripcion = "Diseño arquitectónico y modelado BIM profesional", Precio = 180.00m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/autodeskrevit.png", CostoProveedor = 90.00m, Activo = true },
+                new Producto { Nombre = "AutoCAD", Descripcion = "Diseño asistido por computadora 2D y 3D", Precio = 190.00m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/autocad.png", CostoProveedor = 100.00m, Activo = true },
+
+                // 2. Accesos Mensuales (IA & Streaming)
+                new Producto { Nombre = "ChatGPT Plus (1 Mes)", Descripcion = "Cuenta compartida perfil premium", Precio = 19.90m, DuracionMeses = 1, Categoria = "IA", ImagenUrl = "/chatgpt.png", CostoProveedor = 10.00m, Activo = true },
+                new Producto { Nombre = "Gemini Advanced (1 Mes)", Descripcion = "Acceso premium a Gemini 1.5 Pro y Ultra", Precio = 22.00m, DuracionMeses = 1, Categoria = "IA", ImagenUrl = "/gemini.png", CostoProveedor = 12.00m, Activo = true },
+                new Producto { Nombre = "Supergrok (1 Mes)", Descripcion = "Acceso premium a Grok de xAI", Precio = 15.00m, DuracionMeses = 1, Categoria = "IA", ImagenUrl = "/supergrok.png", CostoProveedor = 8.00m, Activo = true },
+                new Producto { Nombre = "YouTube Premium (1 Mes)", Descripcion = "Sin anuncios y reproducción en segundo plano", Precio = 10.00m, DuracionMeses = 1, Categoria = "Streaming", ImagenUrl = "/youtubepremium.png", CostoProveedor = 4.50m, Activo = true },
+                new Producto { Nombre = "Spotify Premium (1 Mes)", Descripcion = "Música sin anuncios y modo sin conexión", Precio = 9.90m, DuracionMeses = 1, Categoria = "Streaming", ImagenUrl = "/spotifypremium.png", CostoProveedor = 4.00m, Activo = true },
+                new Producto { Nombre = "Netflix Premium (1 Mes)", Descripcion = "Cuenta completa o pantalla ultra HD", Precio = 15.00m, DuracionMeses = 1, Categoria = "Streaming", ImagenUrl = "/netflix.png", CostoProveedor = 7.00m, Activo = true },
+                new Producto { Nombre = "HBO Max (1 Mes)", Descripcion = "Perfil de streaming mensual", Precio = 12.00m, DuracionMeses = 1, Categoria = "Streaming", ImagenUrl = "/hbomax.png", CostoProveedor = 5.00m, Activo = true },
+                new Producto { Nombre = "Prime Video (1 Mes)", Descripcion = "Películas y series exclusivas de Amazon", Precio = 8.00m, DuracionMeses = 1, Categoria = "Streaming", ImagenUrl = "/primevideo.png", CostoProveedor = 3.00m, Activo = true },
+                new Producto { Nombre = "Paramount (1 Mes)", Descripcion = "Suscripción mensual de Paramount+", Precio = 7.00m, DuracionMeses = 1, Categoria = "Streaming", ImagenUrl = "/paramount.png", CostoProveedor = 2.50m, Activo = true },
+
+                // 3. Licencias Perpetuas (Software)
+                new Producto { Nombre = "Windows 10 Pro", Descripcion = "Licencia OEM enlazada al hardware", Precio = 25.00m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = "/windows10.png", CostoProveedor = 10.00m, Activo = true },
+                new Producto { Nombre = "Windows 11 Pro", Descripcion = "Licencia OEM enlazada al hardware", Precio = 29.90m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = "/windows.png", CostoProveedor = 12.00m, Activo = true },
+                new Producto { Nombre = "Office Profesional Plus 2021", Descripcion = "Licencia perpetua de Office 2021", Precio = 35.00m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = "/office2021.png", CostoProveedor = 15.00m, Activo = true },
+                new Producto { Nombre = "Office Profesional Plus 2024", Descripcion = "Licencia perpetua de Office 2024", Precio = 45.00m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = "/office2024.png", CostoProveedor = 20.00m, Activo = true },
+                new Producto { Nombre = "Nitro 14", Descripcion = "Editor y creador de PDF profesional", Precio = 30.00m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = "/nitro14.png", CostoProveedor = 12.00m, Activo = true },
+                new Producto { Nombre = "Filmora", Descripcion = "Editor de video simple y creativo perpetuo", Precio = 40.00m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = "/filmora.png", CostoProveedor = 18.00m, Activo = true }
             };
-            db.Usuarios.Add(adminUser);
+
+            foreach (var p in catalogToSeed)
+            {
+                var existingProd = db.Productos.FirstOrDefault(prod => prod.Nombre == p.Nombre);
+                if (existingProd == null)
+                {
+                    db.Productos.Add(p);
+                }
+                else
+                {
+                    // Actualizar los datos del catálogo sin sobrescribir la bandera Activo
+                    existingProd.Descripcion = p.Descripcion;
+                    existingProd.Precio = p.Precio;
+                    existingProd.DuracionMeses = p.DuracionMeses;
+                    existingProd.Categoria = p.Categoria;
+                    existingProd.ImagenUrl = p.ImagenUrl;
+                    existingProd.CostoProveedor = p.CostoProveedor;
+                    // Note: existingProd.Activo se mantiene como está para no reactivar productos eliminados lógicamente
+                }
+            }
             db.SaveChanges();
-            Console.WriteLine("Usuario administrador semilla registrado con éxito.");
+            Console.WriteLine("Catálogo oficial sembrado y actualizado correctamente con costos de proveedor.");
         }
-
-        // Semilla del Catálogo Completo (23 Productos) con mapeo de imágenes y costos del proveedor
-        var catalogToSeed = new List<Producto>
-        {
-            // 1. Licencias Anuales (Software)
-            new Producto { Nombre = "Canva Pro (Anual)", Descripcion = "Acceso premium administrado mediante equipo", Precio = 49.90m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/canva.png", CostoProveedor = 20.00m, Activo = true },
-            new Producto { Nombre = "CapCut Pro (Anual)", Descripcion = "Edición de video premium anual", Precio = 69.90m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/capcut.png", CostoProveedor = 30.00m, Activo = true },
-            new Producto { Nombre = "ESET Internet Security", Descripcion = "Activación retail de 365 días", Precio = 39.90m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/eset.png", CostoProveedor = 15.00m, Activo = true },
-            new Producto { Nombre = "Office 365 A3", Descripcion = "Suscripción anual educativa de Office 365", Precio = 59.90m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/office365.png", CostoProveedor = 25.00m, Activo = true },
-            new Producto { Nombre = "Adobe Creative Cloud", Descripcion = "Acceso completo a todas las aplicaciones creativas", Precio = 120.00m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/adobe.png", CostoProveedor = 60.00m, Activo = true },
-            new Producto { Nombre = "Autodesk Standard", Descripcion = "Licencia oficial Autodesk Suite Standard", Precio = 150.00m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/autodeskstandado.png", CostoProveedor = 70.00m, Activo = true },
-            new Producto { Nombre = "Autodesk Revit", Descripcion = "Diseño arquitectónico y modelado BIM profesional", Precio = 180.00m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/autodeskrevit.png", CostoProveedor = 90.00m, Activo = true },
-            new Producto { Nombre = "AutoCAD", Descripcion = "Diseño asistido por computadora 2D y 3D", Precio = 190.00m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/autocad.png", CostoProveedor = 100.00m, Activo = true },
-
-            // 2. Accesos Mensuales (IA & Streaming)
-            new Producto { Nombre = "ChatGPT Plus (1 Mes)", Descripcion = "Cuenta compartida perfil premium", Precio = 19.90m, DuracionMeses = 1, Categoria = "IA", ImagenUrl = "/chatgpt.png", CostoProveedor = 10.00m, Activo = true },
-            new Producto { Nombre = "Gemini Advanced (1 Mes)", Descripcion = "Acceso premium a Gemini 1.5 Pro y Ultra", Precio = 22.00m, DuracionMeses = 1, Categoria = "IA", ImagenUrl = "/gemini.png", CostoProveedor = 12.00m, Activo = true },
-            new Producto { Nombre = "Supergrok (1 Mes)", Descripcion = "Acceso premium a Grok de xAI", Precio = 15.00m, DuracionMeses = 1, Categoria = "IA", ImagenUrl = "/supergrok.png", CostoProveedor = 8.00m, Activo = true },
-            new Producto { Nombre = "YouTube Premium (1 Mes)", Descripcion = "Sin anuncios y reproducción en segundo plano", Precio = 10.00m, DuracionMeses = 1, Categoria = "Streaming", ImagenUrl = "/youtubepremium.png", CostoProveedor = 4.50m, Activo = true },
-            new Producto { Nombre = "Spotify Premium (1 Mes)", Descripcion = "Música sin anuncios y modo sin conexión", Precio = 9.90m, DuracionMeses = 1, Categoria = "Streaming", ImagenUrl = "/spotifypremium.png", CostoProveedor = 4.00m, Activo = true },
-            new Producto { Nombre = "Netflix Premium (1 Mes)", Descripcion = "Cuenta completa o pantalla ultra HD", Precio = 15.00m, DuracionMeses = 1, Categoria = "Streaming", ImagenUrl = "/netflix.png", CostoProveedor = 7.00m, Activo = true },
-            new Producto { Nombre = "HBO Max (1 Mes)", Descripcion = "Perfil de streaming mensual", Precio = 12.00m, DuracionMeses = 1, Categoria = "Streaming", ImagenUrl = "/hbomax.png", CostoProveedor = 5.00m, Activo = true },
-            new Producto { Nombre = "Prime Video (1 Mes)", Descripcion = "Películas y series exclusivas de Amazon", Precio = 8.00m, DuracionMeses = 1, Categoria = "Streaming", ImagenUrl = "/primevideo.png", CostoProveedor = 3.00m, Activo = true },
-            new Producto { Nombre = "Paramount (1 Mes)", Descripcion = "Suscripción mensual de Paramount+", Precio = 7.00m, DuracionMeses = 1, Categoria = "Streaming", ImagenUrl = "/paramount.png", CostoProveedor = 2.50m, Activo = true },
-
-            // 3. Licencias Perpetuas (Software)
-            new Producto { Nombre = "Windows 10 Pro", Descripcion = "Licencia OEM enlazada al hardware", Precio = 25.00m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = "/windows10.png", CostoProveedor = 10.00m, Activo = true },
-            new Producto { Nombre = "Windows 11 Pro", Descripcion = "Licencia OEM enlazada al hardware", Precio = 29.90m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = "/windows.png", CostoProveedor = 12.00m, Activo = true },
-            new Producto { Nombre = "Office Profesional Plus 2021", Descripcion = "Licencia perpetua de Office 2021", Precio = 35.00m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = "/office2021.png", CostoProveedor = 15.00m, Activo = true },
-            new Producto { Nombre = "Office Profesional Plus 2024", Descripcion = "Licencia perpetua de Office 2024", Precio = 45.00m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = "/office2024.png", CostoProveedor = 20.00m, Activo = true },
-            new Producto { Nombre = "Nitro 14", Descripcion = "Editor y creador de PDF profesional", Precio = 30.00m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = "/nitro14.png", CostoProveedor = 12.00m, Activo = true },
-            new Producto { Nombre = "Filmora", Descripcion = "Editor de video simple y creativo perpetuo", Precio = 40.00m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = "/filmora.png", CostoProveedor = 18.00m, Activo = true }
-        };
-
-        foreach (var p in catalogToSeed)
-        {
-            var existingProd = db.Productos.FirstOrDefault(prod => prod.Nombre == p.Nombre);
-            if (existingProd == null)
-            {
-                db.Productos.Add(p);
-            }
-            else
-            {
-                // Actualizar los datos del catálogo, incluyendo CostoProveedor, Activo e ImagenUrl
-                existingProd.Descripcion = p.Descripcion;
-                existingProd.Precio = p.Precio;
-                existingProd.DuracionMeses = p.DuracionMeses;
-                existingProd.Categoria = p.Categoria;
-                existingProd.ImagenUrl = p.ImagenUrl;
-                existingProd.CostoProveedor = p.CostoProveedor;
-                existingProd.Activo = p.Activo;
-            }
-        }
-        db.SaveChanges();
-        Console.WriteLine("Catálogo oficial sembrado y actualizado correctamente con costos de proveedor y bandera Activo.");
     }
     catch (Exception ex)
     {
