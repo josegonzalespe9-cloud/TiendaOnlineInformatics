@@ -3,6 +3,7 @@ import { useCart } from '../context/CartContext';
 import { User, ShieldAlert, Key, Calendar, RefreshCw, AlertTriangle, CheckCircle, ExternalLink, Trash2 } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import { API_URL } from '../services/api';
+import { showSuccess, showError, showWarning, showConfirm } from '../utils/alerts';
 
 export default function PanelCliente() {
   const { user, token } = useCart();
@@ -84,15 +85,18 @@ export default function PanelCliente() {
 
   const handleEliminarLicencia = async (detalleId) => {
     if (!detalleId) {
-      alert("Error: Identificador de licencia inválido.");
+      showError("Licencia Inválida", "Error: Identificador de licencia inválido.");
       return;
     }
     if (!token) {
-      alert("Error: Token de autorización no provisto.");
+      showError("Autenticación", "Error: Token de autorización no provisto.");
       return;
     }
     
-    const confirmacion = window.confirm("¿Está seguro de que desea dar de baja y eliminar esta licencia permanentemente?");
+    const confirmacion = await showConfirm(
+      "¿Dar de baja licencia?",
+      "¿Está seguro de que desea dar de baja y eliminar esta licencia permanentemente?"
+    );
     if (!confirmacion) {
       return;
     }
@@ -113,15 +117,15 @@ export default function PanelCliente() {
           }
           return [];
         });
-        alert("Licencia eliminada con éxito.");
+        showSuccess("Licencia Eliminada", "Licencia eliminada con éxito.");
       } else {
         const errorData = response ? await response.json() : null;
         const mensajeError = errorData && errorData.mensaje ? errorData.mensaje : "Error al procesar la eliminación de la licencia.";
-        alert(mensajeError);
+        showError("Error al Eliminar", mensajeError);
       }
     } catch (error) {
       console.error("Error al eliminar la licencia:", error);
-      alert("Ocurrió un error en el servidor al intentar eliminar la licencia.");
+      showError("Error de Servidor", "Ocurrió un error en el servidor al intentar eliminar la licencia.");
     }
   };
 

@@ -4,6 +4,7 @@ import { ShoppingBag, Trash2, Plus, Minus, CreditCard, ArrowRight, CheckCircle2 
 import { Link } from 'react-router-dom';
 import { API_URL } from '../services/api';
 import CachedImage from './CachedImage';
+import { showError, showWarning } from '../utils/alerts';
 
 export default function Carrito() {
   const { cartItems, cartTotal, updateQuantity, removeFromCart, clearCart, user } = useCart();
@@ -16,12 +17,12 @@ export default function Carrito() {
   const handleCheckout = async () => {
     try {
       if (!user) {
-        alert('Debe iniciar sesión para procesar su compra.');
+        showWarning('Sesión Requerida', 'Debe iniciar sesión para procesar su compra.');
         return;
       }
 
       if (cartItems.length === 0) {
-        alert('El carrito está vacío.');
+        showWarning('Carrito Vacío', 'El carrito está vacío.');
         return;
       }
 
@@ -72,7 +73,7 @@ export default function Carrito() {
       clearCart();
     } catch (error) {
       console.error("Error en checkout:", error);
-      alert('Hubo un inconveniente al procesar tu compra. Por favor, intenta de nuevo o comunícate con soporte.');
+      showError('Inconveniente con la Compra', 'Hubo un inconveniente al procesar tu compra. Por favor, intenta de nuevo o comunícate con soporte.');
     } finally {
       setLoading(false);
     }

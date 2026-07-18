@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { X } from 'lucide-react';
+import { showWarning } from '../utils/alerts';
 
 const WhatsAppSVG = ({ className }) => (
   <svg 
@@ -49,7 +50,7 @@ export default function BotonSoporteFloat() {
     e.preventDefault();
     try {
       if (!nombre.trim() || !mensaje.trim()) {
-        alert('Por favor complete todos los campos.');
+        showWarning('Campos Incompletos', 'Por favor complete todos los campos.');
         return;
       }
 

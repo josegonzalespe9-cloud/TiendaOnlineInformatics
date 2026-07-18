@@ -3,6 +3,7 @@ import { useCart } from '../context/CartContext';
 import { Lock, Mail, User, Phone, LogIn, UserPlus, Eye, EyeOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { API_URL } from '../services/api';
+import { showSuccess, showError, showWarning } from '../utils/alerts';
 
 export default function Login() {
   const [isRegister, setIsRegister] = useState(false);
@@ -24,7 +25,7 @@ export default function Login() {
       if (isRegister) {
         // Validación local estricta antes de enviar datos al servidor
         if (!nombre.trim() || !email.trim() || !password.trim() || !whatsapp.trim()) {
-          alert('Por favor, rellene todos los campos.');
+          showWarning('Formulario Incompleto', 'Por favor, rellene todos los campos.');
           return;
         }
 
@@ -48,13 +49,13 @@ export default function Login() {
           throw new Error(errData.mensaje || 'Error en el registro');
         }
 
-        alert('Registro completado con éxito. Ahora puede iniciar sesión.');
+        showSuccess('Registro Exitoso', 'Registro completado con éxito. Ahora puede iniciar sesión.');
         setIsRegister(false);
         setPassword('');
       } else {
         // Validación local de login
         if (!email.trim() || !password.trim()) {
-          alert('Por favor, ingrese su correo y contraseña.');
+          showWarning('Campos Requeridos', 'Por favor, ingrese su correo y contraseña.');
           return;
         }
 
@@ -84,7 +85,7 @@ export default function Login() {
       }
     } catch (error) {
       console.error("Error de autenticación:", error);
-      alert(error.message || 'Ha ocurrido un error en las credenciales. Revise sus datos.');
+      showError('Error de Autenticación', error.message || 'Ha ocurrido un error en las credenciales. Revise sus datos.');
     } finally {
       setLoading(false);
     }

@@ -7,10 +7,24 @@ import {
 } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import { API_URL } from '../services/api';
+import { showSuccess, showError, showWarning, showConfirm } from '../utils/alerts';
 
 export default function AdminPanel() {
   const { user, token } = useCart();
   const [tab, setTab] = useState('ordenes'); // 'ordenes' | 'productos' | 'clientes' | 'reportes'
+
+  // Utilidad de Alerta Local para reconfigurar alert() a SweetAlert2
+  const alert = (msg) => {
+    if (!msg) return;
+    const lower = msg.toLowerCase();
+    if (lower.includes('éxito') || lower.includes('completad') || lower.includes('guardado') || lower.includes('desactivado') || lower.includes('eliminada')) {
+      showSuccess('¡Éxito!', msg);
+    } else if (lower.includes('error') || lower.includes('falló') || lower.includes('no se pudo') || lower.includes('inválido') || lower.includes('no válido')) {
+      showError('Error', msg);
+    } else {
+      showWarning('Atención', msg);
+    }
+  };
 
   // --- ESTADOS PARA ÓRDENES ---
   const [ordenes, setOrdenes] = useState([]);
@@ -209,7 +223,11 @@ export default function AdminPanel() {
       alert("Error: Token de autorización o identificador de orden no provisto.");
       return;
     }
-    if (!window.confirm('¿Está seguro de que desea cancelar esta orden de forma definitiva?')) {
+    const confirmacion = await showConfirm(
+      '¿Cancelar Orden?',
+      '¿Está seguro de que desea cancelar esta orden de forma definitiva?'
+    );
+    if (!confirmacion) {
       return;
     }
 
@@ -608,7 +626,11 @@ export default function AdminPanel() {
       return;
     }
 
-    if (!window.confirm(`¿Está seguro de que desea dar de baja al cliente "${cliente.nombre}"?`)) return;
+    const confirmacion = await showConfirm(
+      '¿Dar de baja cliente?',
+      `¿Está seguro de que desea dar de baja al cliente "${cliente.nombre}"?`
+    );
+    if (!confirmacion) return;
 
     try {
       const response = await fetch(`${API_URL}/api/admin/clientes/${id}`, {
