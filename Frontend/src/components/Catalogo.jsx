@@ -3,6 +3,7 @@ import { useCart } from '../context/CartContext';
 import { Search, Monitor, Tv, BrainCircuit, ShoppingCart, Info, Check } from 'lucide-react';
 import { API_URL } from '../services/api';
 import CachedImage from './CachedImage';
+import { showToast } from '../utils/alerts';
 
 export default function Catalogo() {
   const [productos, setProductos] = useState([]);
@@ -45,6 +46,7 @@ export default function Catalogo() {
 
   const handleAgregar = (producto) => {
     addToCart(producto);
+    showToast(`"${producto.nombre}" agregado al carrito`, 'success');
     setProductoAgregadoId(producto.id);
     setTimeout(() => {
       setProductoAgregadoId(null);
