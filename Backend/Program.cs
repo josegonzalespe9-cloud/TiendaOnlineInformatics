@@ -43,6 +43,12 @@ using (var scope = app.Services.CreateScope())
 {
     try
     {
+        // Asegurar que la carpeta local wwwroot/uploads exista
+        var localUploadsFolder = Path.Combine(app.Environment.ContentRootPath, "wwwroot", "uploads");
+        if (!Directory.Exists(localUploadsFolder))
+        {
+            Directory.CreateDirectory(localUploadsFolder);
+        }
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         
         // Aplica las migraciones pendientes y crea las tablas si no existen sin borrar la BD
@@ -262,6 +268,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseStaticFiles();
 app.UseCors("AllowReactApp");
 
 // --- ENDPOINTS DE LA API CON MANEJO DE ERRORES BLINDADO ---
@@ -803,6 +810,85 @@ app.MapPost("/api/admin/productos", async (Producto producto, ApplicationDbConte
         return Results.Json(new { mensaje = "Error al registrar el producto.", detalle = ex.Message }, statusCode: 500);
     }
 }).RequireAdminRole();
+
+// 10b. CRUD PRODUCTOS - SUBIR IMAGEN (SUPABASE STORAGE CON FALLBACK LOCAL)
+app.MapPost("/api/admin/productos/upload", async (IFormFile file, IConfiguration config, IWebHostEnvironment env) =>
+{
+    try
+    {
+        if (file == null || file.Length == 0)
+        {
+            return Results.BadRequest(new { mensaje = "No se ha seleccionado ningún archivo." });
+        }
+
+        var extension = Path.GetExtension(file.FileName);
+        var safeFileName = Path.GetFileNameWithoutExtension(file.FileName)
+            .Replace(" ", "_")
+            .Replace("-", "_");
+        
+        safeFileName = System.Text.RegularExpressions.Regex.Replace(safeFileName, @"[^a-zA-Z0-9_]", "");
+        var fileName = $"{DateTime.UtcNow.Ticks}_{safeFileName}{extension}";
+
+        var supabaseUrl = config["Supabase:Url"];
+        var supabaseApiKey = config["Supabase:ApiKey"];
+        var supabaseBucket = config["Supabase:Bucket"] ?? "productos";
+
+        if (!string.IsNullOrWhiteSpace(supabaseUrl) && !string.IsNullOrWhiteSpace(supabaseApiKey))
+        {
+            try
+            {
+                using var client = new HttpClient();
+                client.DefaultRequestHeaders.Add("Authorization", $"Bearer {supabaseApiKey}");
+                client.DefaultRequestHeaders.Add("apikey", supabaseApiKey);
+
+                var baseUrl = supabaseUrl.TrimEnd('/');
+                var requestUrl = $"{baseUrl}/storage/v1/object/{supabaseBucket}/{fileName}";
+
+                using var content = new StreamContent(file.OpenReadStream());
+                content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType ?? "image/png");
+
+                var response = await client.PostAsync(requestUrl, content);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var publicUrl = $"{baseUrl}/storage/v1/object/public/{supabaseBucket}/{fileName}";
+                    return Results.Ok(new { url = publicUrl });
+                }
+                else
+                {
+                    var errorMsg = await response.Content.ReadAsStringAsync();
+                    Console.WriteLine($"[Supabase Upload Error] Status: {response.StatusCode}, Detalle: {errorMsg}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Supabase Upload Exception] {ex.Message}");
+            }
+        }
+
+        // --- FALLBACK LOCAL ---
+        var uploadsFolder = Path.Combine(env.ContentRootPath, "wwwroot", "uploads");
+        if (!Directory.Exists(uploadsFolder))
+        {
+            Directory.CreateDirectory(uploadsFolder);
+        }
+
+        var filePath = Path.Combine(uploadsFolder, fileName);
+        using (var stream = new FileStream(filePath, FileMode.Create))
+        {
+            await file.CopyToAsync(stream);
+        }
+
+        var localUrl = $"/uploads/{fileName}";
+        return Results.Ok(new { url = localUrl });
+    }
+    catch (Exception ex)
+    {
+        var log = $"Fecha: {DateTime.UtcNow}\nComponente: AdminUploadProducto\nMensaje: {ex.Message}\nTraza: {ex.StackTrace}";
+        Console.WriteLine(log);
+        return Results.Json(new { mensaje = "Error al subir la imagen.", detalle = ex.Message }, statusCode: 500);
+    }
+}).RequireAdminRole().DisableAntiforgery();
 
 // 11. CRUD PRODUCTOS - ACTUALIZAR
 app.MapPut("/api/admin/productos/{id}", async (int id, Producto producto, ApplicationDbContext db) =>

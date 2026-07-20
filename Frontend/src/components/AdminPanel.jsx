@@ -50,6 +50,8 @@ export default function AdminPanel() {
     imagenUrl: '',
     costoProveedor: 0
   });
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [useManualImageUrl, setUseManualImageUrl] = useState(false);
 
   // --- ESTADOS PARA CLIENTES (CRUD) ---
   const [clientes, setClientes] = useState([]);
@@ -353,6 +355,7 @@ export default function AdminPanel() {
     });
     setEditingProducto(null);
     setShowProductForm('create');
+    setUseManualImageUrl(false);
   };
 
   const handleEditClick = (prod) => {
@@ -374,6 +377,8 @@ export default function AdminPanel() {
     });
     setEditingProducto(prod);
     setShowProductForm('edit');
+    const isLocalAsset = !prod.imagenUrl || (!prod.imagenUrl.startsWith('http') && !prod.imagenUrl.includes('/uploads/'));
+    setUseManualImageUrl(isLocalAsset || (prod.imagenUrl.startsWith('http') && !prod.imagenUrl.includes('supabase.co')));
   };
 
   const handleProductInputChange = (key, value) => {
@@ -381,6 +386,47 @@ export default function AdminPanel() {
       ...prev,
       [key]: value
     }));
+  };
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert("Error: Solo se permiten archivos de imagen.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    setUploadingImage(true);
+    try {
+      const response = await fetch(`${API_URL}/api/admin/productos/upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al subir la imagen');
+      }
+
+      const data = await response.json();
+      if (data.url) {
+        handleProductInputChange('imagenUrl', data.url);
+        alert('¡Imagen subida con éxito!');
+      } else {
+        throw new Error('La respuesta del servidor no contiene una URL válida.');
+      }
+    } catch (err) {
+      console.error("Error al subir imagen:", err);
+      alert('Ocurrió un error al intentar subir la imagen.');
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   const submitProductForm = async (e) => {
@@ -1143,17 +1189,87 @@ export default function AdminPanel() {
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wide">Imagen Relativa (/nombre.png)</label>
-                    <input
-                      type="text"
-                      required
-                      value={productForm.imagenUrl}
-                      onChange={(e) => handleProductInputChange('imagenUrl', e.target.value)}
-                      className="bg-[#1e293b] text-white border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg w-full p-2.5 text-sm font-mono"
-                      placeholder="/canva.png"
-                    />
+                  <div className="md:col-span-2 bg-[#111827] p-4 rounded-xl border border-slate-800 space-y-4">
+                    <div className="flex justify-between items-center">
+                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-wide">
+                        Imagen del Producto
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setUseManualImageUrl(!useManualImageUrl)}
+                        className="text-xs text-sky-400 hover:text-sky-300 transition-colors font-medium underline"
+                      >
+                        {useManualImageUrl ? "Subir Archivo" : "Ingresar URL Manual"}
+                      </button>
+                    </div>
+
+                    {useManualImageUrl ? (
+                      <div>
+                        <input
+                          type="text"
+                          required
+                          value={productForm.imagenUrl}
+                          onChange={(e) => handleProductInputChange('imagenUrl', e.target.value)}
+                          className="bg-[#1e293b] text-white border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg w-full p-2.5 text-sm font-mono"
+                          placeholder="/canva.png o https://ejemplo.com/imagen.jpg"
+                        />
+                        <span className="text-[10px] text-slate-500 mt-1 block">
+                          Ingresa una ruta relativa (ej. /netflix.png) o un enlace web externo completo.
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-center w-full">
+                          <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-700 border-dashed rounded-lg cursor-pointer bg-[#1e293b] hover:bg-slate-800/80 transition-colors">
+                            <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                              {uploadingImage ? (
+                                <>
+                                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-sky-500 mb-2"></div>
+                                  <p className="text-xs text-sky-400 font-bold">Subiendo imagen...</p>
+                                </>
+                              ) : (
+                                <>
+                                  <Plus className="w-8 h-8 text-slate-400 mb-2" />
+                                  <p className="text-sm text-slate-300 font-bold">Haz clic para subir una foto</p>
+                                  <p className="text-xs text-slate-500 mt-1">PNG, JPG, JPEG, WEBP (Máx. 5MB)</p>
+                                </>
+                              )}
+                            </div>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              disabled={uploadingImage}
+                              onChange={handleImageUpload}
+                              className="hidden"
+                            />
+                          </label>
+                        </div>
+
+                        {productForm.imagenUrl && (
+                          <div className="flex items-center gap-4 bg-slate-900/60 p-3 rounded-lg border border-slate-800">
+                            <img
+                              src={formatImageUrl(productForm.imagenUrl)}
+                              alt="Vista previa"
+                              className="w-16 h-16 object-cover rounded-lg border border-slate-700"
+                              onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=300&q=80'; }}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-bold text-slate-300 truncate">Imagen actual:</p>
+                              <p className="text-[10px] text-slate-500 font-mono truncate">{productForm.imagenUrl}</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleProductInputChange('imagenUrl', '')}
+                              className="text-rose-500 hover:text-rose-400 text-xs font-bold px-2 py-1 rounded border border-rose-500/20 hover:bg-rose-500/10 transition-colors"
+                            >
+                              Remover
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
+
 
                   <div>
                     <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wide">Precio de Venta (S/ )</label>
