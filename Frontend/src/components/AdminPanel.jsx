@@ -44,11 +44,11 @@ export default function AdminPanel() {
   const [productForm, setProductForm] = useState({
     nombre: '',
     descripcion: '',
-    precio: 0,
-    duracionMeses: 0,
+    precio: '',
+    duracionMeses: '',
     categoria: 'Software',
     imagenUrl: '',
-    costoProveedor: 0
+    costoProveedor: ''
   });
   const [uploadingImage, setUploadingImage] = useState(false);
   const [useManualImageUrl, setUseManualImageUrl] = useState(false);
@@ -347,11 +347,11 @@ export default function AdminPanel() {
     setProductForm({
       nombre: '',
       descripcion: '',
-      precio: 0,
-      duracionMeses: 0,
+      precio: '',
+      duracionMeses: '',
       categoria: 'Software',
       imagenUrl: '',
-      costoProveedor: 0
+      costoProveedor: ''
     });
     setEditingProducto(null);
     setShowProductForm('create');
@@ -369,11 +369,11 @@ export default function AdminPanel() {
     setProductForm({
       nombre: prod.nombre,
       descripcion: prod.descripcion || '',
-      precio: prod.precio,
-      duracionMeses: prod.duracionMeses,
+      precio: prod.precio !== undefined && prod.precio !== null ? String(Number(prod.precio)) : '',
+      duracionMeses: prod.duracionMeses !== undefined && prod.duracionMeses !== null ? String(Number(prod.duracionMeses)) : '',
       categoria: prod.categoria,
       imagenUrl: prod.imagenUrl || '',
-      costoProveedor: prod.costoProveedor || 0
+      costoProveedor: prod.costoProveedor !== undefined && prod.costoProveedor !== null ? String(Number(prod.costoProveedor)) : ''
     });
     setEditingProducto(prod);
     setShowProductForm('edit');
@@ -443,13 +443,20 @@ export default function AdminPanel() {
       
       const method = showProductForm === 'create' ? 'POST' : 'PUT';
 
+      const payload = {
+        ...productForm,
+        precio: parseFloat(productForm.precio) || 0,
+        duracionMeses: parseInt(productForm.duracionMeses, 10) || 0,
+        costoProveedor: parseFloat(productForm.costoProveedor) || 0
+      };
+
       const response = await fetch(url, {
         method: method,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(productForm)
+        body: JSON.stringify(payload)
       });
 
       if (!response.ok) {
@@ -1184,7 +1191,7 @@ export default function AdminPanel() {
                       min="0"
                       max="120"
                       value={productForm.duracionMeses}
-                      onChange={(e) => handleProductInputChange('duracionMeses', parseInt(e.target.value) || 0)}
+                      onChange={(e) => handleProductInputChange('duracionMeses', e.target.value)}
                       className="bg-[#1e293b] text-white border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg w-full p-2.5 text-sm"
                     />
                   </div>
@@ -1279,7 +1286,7 @@ export default function AdminPanel() {
                       required
                       min="0.01"
                       value={productForm.precio}
-                      onChange={(e) => handleProductInputChange('precio', parseFloat(e.target.value) || 0)}
+                      onChange={(e) => handleProductInputChange('precio', e.target.value)}
                       className="bg-[#1e293b] text-white border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg w-full p-2.5 text-sm font-mono"
                     />
                   </div>
@@ -1292,7 +1299,7 @@ export default function AdminPanel() {
                       required
                       min="0.00"
                       value={productForm.costoProveedor}
-                      onChange={(e) => handleProductInputChange('costoProveedor', parseFloat(e.target.value) || 0)}
+                      onChange={(e) => handleProductInputChange('costoProveedor', e.target.value)}
                       className="bg-[#1e293b] text-white border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg w-full p-2.5 text-sm font-mono"
                     />
                   </div>
