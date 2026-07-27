@@ -52,6 +52,7 @@ export default function AdminPanel() {
   });
   const [uploadingImage, setUploadingImage] = useState(false);
   const [useManualImageUrl, setUseManualImageUrl] = useState(false);
+  const [nuevaCaracteristicaTexto, setNuevaCaracteristicaTexto] = useState('');
 
   // --- ESTADOS PARA CLIENTES (CRUD) ---
   const [clientes, setClientes] = useState([]);
@@ -433,6 +434,27 @@ export default function AdminPanel() {
     setShowProductForm('edit');
     const isLocalAsset = !prod.imagenUrl || (!prod.imagenUrl.startsWith('http') && !prod.imagenUrl.includes('/uploads/'));
     setUseManualImageUrl(isLocalAsset || (prod.imagenUrl.startsWith('http') && !prod.imagenUrl.includes('supabase.co')));
+  };
+
+  const agregarCaracteristicaAForm = (textoCustom) => {
+    const item = (textoCustom !== undefined && textoCustom !== null ? textoCustom : nuevaCaracteristicaTexto).trim();
+    if (!item) return;
+
+    const prev = productForm.descripcion ? productForm.descripcion.trim() : '';
+    const updated = prev ? `${prev}\n• ${item}` : `• ${item}`;
+    
+    setProductForm(p => ({ ...p, descripcion: updated }));
+    setNuevaCaracteristicaTexto('');
+  };
+
+  const eliminarCaracteristicaDeForm = (indexAEliminar) => {
+    const lineas = (productForm.descripcion || '')
+      .split(/\r?\n/)
+      .map(l => l.trim())
+      .filter(l => l.length > 0);
+
+    const filtradas = lineas.filter((_, idx) => idx !== indexAEliminar);
+    setProductForm(p => ({ ...p, descripcion: filtradas.join('\n') }));
   };
 
   const handleProductInputChange = (key, value) => {
@@ -1237,19 +1259,119 @@ export default function AdminPanel() {
                     </select>
                   </div>
 
-                  <div className="md:col-span-2">
-                    <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wide flex justify-between items-center">
-                      <span>Descripción Comercial & Características</span>
-                      <span className="text-[10px] text-slate-500 font-normal">Soporta viñetas y múltiples líneas</span>
-                    </label>
-                    <textarea
-                      required
-                      rows="5"
-                      value={productForm.descripcion}
-                      onChange={(e) => handleProductInputChange('descripcion', e.target.value)}
-                      className="bg-[#1e293b] text-white border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg w-full p-2.5 text-sm resize-y leading-relaxed"
-                      placeholder="Introduce las características del producto (puedes agregar varias líneas con guiones o comas, ej. Licencia 100% Oficial, Entrega Inmediata, Soporte 24/7)..."
-                    />
+                  {/* SECCIÓN ESPECIAL Y DEDICADA DE CARACTERÍSTICAS DEL PRODUCTO */}
+                  <div className="md:col-span-2 bg-slate-950/80 border border-slate-800 p-4 rounded-2xl space-y-4">
+                    <div className="flex justify-between items-center">
+                      <label className="block text-xs font-bold text-sky-400 uppercase tracking-wide flex items-center gap-1.5">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                        <span>Gestor de Características del Producto (Se muestran en el Modal del Cliente)</span>
+                      </label>
+                      <span className="text-[10px] text-slate-400 bg-slate-900 px-2.5 py-1 rounded-full border border-slate-800 font-mono">
+                        Puntos de Viñeta
+                      </span>
+                    </div>
+
+                    {/* Campo de Entrada + Botón Añadir */}
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={nuevaCaracteristicaTexto}
+                        onChange={(e) => setNuevaCaracteristicaTexto(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            agregarCaracteristicaAForm();
+                          }
+                        }}
+                        className="bg-[#1e293b] text-white border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg flex-1 p-2 text-xs"
+                        placeholder="Ej. Licencia 100% Oficial, Entrega Inmediata en 5 Minutos..."
+                      />
+                      <button
+                        type="button"
+                        onClick={() => agregarCaracteristicaAForm()}
+                        className="bg-emerald-500 hover:bg-emerald-400 text-slate-955 font-bold px-3.5 py-2 rounded-lg text-xs flex items-center gap-1 transition-all shadow-md active:scale-95 shrink-0"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        Añadir Punto
+                      </button>
+                    </div>
+
+                    {/* Botones de Sugerencias Rápida */}
+                    <div className="flex flex-wrap gap-1.5 items-center pt-1">
+                      <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mr-1">Sugerencias rápidas:</span>
+                      {[
+                        'Licencia 100% Oficial',
+                        'Garantía Total',
+                        'Entrega Inmediata',
+                        'Soporte Técnico 24/7',
+                        'Multilenguaje (Español/Inglés)'
+                      ].map((sug, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => agregarCaracteristicaAForm(sug)}
+                          className="text-[10px] bg-slate-900 hover:bg-sky-500/20 text-slate-300 hover:text-sky-300 border border-slate-800 hover:border-sky-500/40 px-2 py-0.5 rounded-md transition-colors"
+                        >
+                          + {sug}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Lista de Características Actuales con Botón Eliminar */}
+                    <div className="space-y-1.5 pt-2 border-t border-slate-800/80">
+                      <span className="text-[11px] font-bold text-slate-300 block mb-2">
+                        Lista actual de características ({
+                          (productForm.descripcion || '')
+                            .split(/\r?\n/)
+                            .map(l => l.trim())
+                            .filter(l => l.length > 0).length
+                        } puntos):
+                      </span>
+
+                      {(productForm.descripcion || '')
+                        .split(/\r?\n/)
+                        .map(l => l.trim())
+                        .filter(l => l.length > 0).length === 0 ? (
+                        <p className="text-xs text-slate-500 italic py-1">
+                          No has agregado ninguna característica aún. Escribe una arriba o usa las sugerencias.
+                        </p>
+                      ) : (
+                        <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                          {(productForm.descripcion || '')
+                            .split(/\r?\n/)
+                            .map(l => l.trim())
+                            .filter(l => l.length > 0)
+                            .map((linea, idx) => (
+                              <div key={idx} className="flex items-center justify-between bg-[#1e293b] p-2 rounded-lg border border-slate-700 text-xs">
+                                <div className="flex items-center gap-2 text-slate-200">
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                                  <span>{linea.replace(/^[•\-]\s*/, '')}</span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => eliminarCaracteristicaDeForm(idx)}
+                                  className="text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 p-1 rounded transition-colors"
+                                  title="Eliminar esta característica"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Edición directa de texto crudo */}
+                    <details className="text-[10px] text-slate-500 pt-1 cursor-pointer">
+                      <summary className="hover:text-slate-400 font-medium">Editar texto completo / resumen en bruto</summary>
+                      <textarea
+                        rows="3"
+                        value={productForm.descripcion}
+                        onChange={(e) => handleProductInputChange('descripcion', e.target.value)}
+                        className="bg-[#1e293b] text-white border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg w-full p-2 text-xs font-mono mt-2"
+                        placeholder="Texto crudo..."
+                      />
+                    </details>
                   </div>
 
                   <div>
