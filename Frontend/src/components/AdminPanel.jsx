@@ -3,7 +3,7 @@ import { useCart } from '../context/CartContext';
 import { 
   FileText, Key, AlertTriangle, CheckSquare, RefreshCw, 
   ShieldAlert, CheckCircle2, Package, Users, BarChart3, Plus, 
-  Trash2, Edit3, Save, X, Search, ChevronLeft, ChevronRight, TrendingUp, Info, Eye, EyeOff
+  Trash2, Edit3, Save, X, Search, ChevronLeft, ChevronRight, TrendingUp, Info, Eye, EyeOff, Download
 } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import { API_URL } from '../services/api';
@@ -340,6 +340,60 @@ export default function AdminPanel() {
       console.error("Error al obtener productos:", e);
     } finally {
       setLoadingProductos(false);
+    }
+  };
+
+  const exportarProductosExcel = () => {
+    if (!productos || productos.length === 0) {
+      alert("No hay productos disponibles para exportar.");
+      return;
+    }
+
+    try {
+      const headers = [
+        "ID",
+        "Nombre del Producto",
+        "Categoría",
+        "Duración",
+        "Precio Venta (S/)",
+        "Costo Proveedor (S/)",
+        "Ganancia Est. (S/)",
+        "Margen (%)"
+      ];
+
+      const rows = productos.map(prod => {
+        const duracion = prod.duracionMeses === 0 ? "Perpetuo" : `${prod.duracionMeses} Meses`;
+        const precio = (Number(prod.precio) || 0);
+        const costo = (Number(prod.costoProveedor) || 0);
+        const ganancia = precio - costo;
+        const margenPorcentaje = precio > 0 ? ((ganancia / precio) * 100).toFixed(1) + "%" : "0%";
+
+        return [
+          prod.id || prod.productoId || "",
+          `"${(prod.nombre || "").replace(/"/g, '""')}"`,
+          `"${(prod.categoria || "").replace(/"/g, '""')}"`,
+          `"${duracion}"`,
+          precio.toFixed(2),
+          costo.toFixed(2),
+          ganancia.toFixed(2),
+          `"${margenPorcentaje}"`
+        ];
+      });
+
+      const csvContent = "\uFEFF" + [headers.join(";"), ...rows.map(r => r.join(";"))].join("\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const fecha = new Date().toISOString().split("T")[0];
+      link.setAttribute("href", url);
+      link.setAttribute("download", `Catalogo_Productos_Informatics_${fecha}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Error al exportar productos a Excel:", err);
+      alert("Ocurrió un error al generar el archivo Excel.");
     }
   };
 
@@ -1114,17 +1168,29 @@ export default function AdminPanel() {
       {tab === 'productos' && (
         <div className="space-y-6">
           {/* Botón de Agregar */}
-          <div className="flex justify-between items-center bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl">
             <span className="text-slate-300 font-bold text-sm">Catálogo Oficial de Licencias</span>
-            {!showProductForm && (
+            <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
               <button
-                onClick={openAddProduct}
-                className="bg-sky-500 hover:bg-sky-400 text-slate-955 font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-md active:scale-95"
+                type="button"
+                onClick={exportarProductosExcel}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-md active:scale-95 border border-emerald-500/30"
+                title="Exportar catálogo completo a formato Excel (.csv)"
               >
-                <Plus className="w-4 h-4" />
-                Agregar Producto
+                <Download className="w-4 h-4" />
+                Exportar a Excel
               </button>
-            )}
+              {!showProductForm && (
+                <button
+                  type="button"
+                  onClick={openAddProduct}
+                  className="bg-sky-500 hover:bg-sky-400 text-slate-955 font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-md active:scale-95"
+                >
+                  <Plus className="w-4 h-4" />
+                  Agregar Producto
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Formulario de Agregar / Editar (Modal Flotante Centrado con Contraste Elevado) */}
@@ -1172,14 +1238,17 @@ export default function AdminPanel() {
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wide">Descripción Comercial</label>
+                    <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wide flex justify-between items-center">
+                      <span>Descripción Comercial & Características</span>
+                      <span className="text-[10px] text-slate-500 font-normal">Soporta viñetas y múltiples líneas</span>
+                    </label>
                     <textarea
                       required
-                      rows="3"
+                      rows="5"
                       value={productForm.descripcion}
                       onChange={(e) => handleProductInputChange('descripcion', e.target.value)}
-                      className="bg-[#1e293b] text-white border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg w-full p-2.5 text-sm resize-none"
-                      placeholder="Introduce características del producto..."
+                      className="bg-[#1e293b] text-white border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg w-full p-2.5 text-sm resize-y leading-relaxed"
+                      placeholder="Introduce las características del producto (puedes agregar varias líneas con guiones o comas, ej. Licencia 100% Oficial, Entrega Inmediata, Soporte 24/7)..."
                     />
                   </div>
 

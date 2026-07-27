@@ -12,7 +12,7 @@ public class Producto
     [MaxLength(150, ErrorMessage = "El nombre del producto no puede superar los 150 caracteres")]
     public string Nombre { get; set; } = string.Empty;
 
-    [MaxLength(500, ErrorMessage = "La descripción no puede superar los 500 caracteres")]
+    [MaxLength(2000, ErrorMessage = "La descripción no puede superar los 2000 caracteres")]
     public string Descripcion { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "El precio es obligatorio")]
