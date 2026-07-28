@@ -6,6 +6,9 @@ using System.Text;
 using System.Text.Json;
 using System.Security.Cryptography;
 
+// Prevenir el límite de inotify de Linux/Render al cargar configuraciones con FileSystemWatcher
+Environment.SetEnvironmentVariable("DOTNET_USE_POLLING_FILE_WATCHER", "true");
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Configurar serialización JSON para manejar ciclos

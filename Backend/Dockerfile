@@ -17,6 +17,7 @@ COPY --from=build-env /app/out .
 
 # Configurar el puerto dinámico que requiere Render
 ENV ASPNETCORE_URLS=http://+:10000
+ENV DOTNET_USE_POLLING_FILE_WATCHER=true
 EXPOSE 10000
 
 ENTRYPOINT ["dotnet", "Backend.dll"]
