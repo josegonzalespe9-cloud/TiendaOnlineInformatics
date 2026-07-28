@@ -8,9 +8,10 @@ import Login from './components/Login';
 import AdminPanel from './components/AdminPanel';
 import BotonSoporteFloat from './components/BotonSoporteFloat';
 import ProtectedRoute from './components/ProtectedRoute';
-import { ShoppingCart, User, ShieldAlert, LogOut, Code, Menu, X } from 'lucide-react';
+import FAQModal from './components/FAQModal';
+import { ShoppingCart, User, ShieldAlert, LogOut, Code, Menu, X, HelpCircle } from 'lucide-react';
 
-function Navigation() {
+function Navigation({ onOpenFAQ }) {
   const { cartItemsCount, user, logout } = useCart();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
@@ -50,6 +51,14 @@ function Navigation() {
               Catálogo
             </Link>
 
+            <button
+              onClick={onOpenFAQ}
+              className="text-slate-350 hover:text-cyan-400 text-sm font-medium transition-colors flex items-center gap-1"
+            >
+              <HelpCircle className="w-4 h-4 text-cyan-400" />
+              Preguntas & Guías
+            </button>
+
             {/* Botón exclusivo Panel Admin al lado de Catálogo */}
             {user && (user.rol === 'Admin' || user.rol === 'Administrador') && (
               <Link
@@ -79,7 +88,7 @@ function Navigation() {
               <div className="flex items-center gap-2">
                 <Link
                   to="/panel"
-                  className="flex items-center gap-1.5 bg-slate-950 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-slate-100 px-4 py-2 rounded-xl text-xs font-semibold transition-all"
+                  className="flex items-center gap-1.5 bg-slate-955 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-slate-100 px-4 py-2 rounded-xl text-xs font-semibold transition-all"
                 >
                   <User className="w-3.5 h-3.5" />
                   Mi Panel
@@ -153,6 +162,14 @@ function Navigation() {
             Catálogo
           </Link>
 
+          <button
+            onClick={() => { closeMenu(); onOpenFAQ(); }}
+            className="w-full text-left text-cyan-400 hover:text-cyan-300 text-sm font-medium py-2 transition-colors border-b border-slate-800/40 flex items-center gap-2"
+          >
+            <HelpCircle className="w-4 h-4" />
+            Preguntas & Guías de Activación
+          </button>
+
           {user && (user.rol === 'Admin' || user.rol === 'Administrador') && (
             <Link
               to="/admin"
@@ -168,7 +185,7 @@ function Navigation() {
               <Link
                 to="/panel"
                 onClick={closeMenu}
-                className="flex items-center gap-2 bg-slate-950 border border-slate-800 text-slate-300 px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-900 transition-all"
+                className="flex items-center gap-2 bg-slate-955 border border-slate-800 text-slate-300 px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-900 transition-all"
               >
                 <User className="w-4 h-4" />
                 Mi Panel
@@ -211,9 +228,11 @@ function Navigation() {
 }
 
 function MainLayout() {
+  const [isFAQOpen, setIsFAQOpen] = useState(false);
+
   return (
     <div className="flex flex-col min-h-screen">
-      <Navigation />
+      <Navigation onOpenFAQ={() => setIsFAQOpen(true)} />
 
       {/* Contenido Principal */}
       <main className="flex-grow">
@@ -230,13 +249,20 @@ function MainLayout() {
         </Routes>
       </main>
 
+      {/* Modal interactivo de Preguntas Frecuentes & Guías de Activación */}
+      <FAQModal isOpen={isFAQOpen} onClose={() => setIsFAQOpen(false)} />
+
       {/* Botón flotante global de Soporte */}
       <BotonSoporteFloat />
 
       {/* Footer */}
-      <footer className="bg-slate-950 border-t border-slate-900/60 py-6 text-center text-xs text-slate-500">
+      <footer className="bg-slate-955 border-t border-slate-900/60 py-6 text-center text-xs text-slate-500 space-y-2">
         <p>© 2026 Informatics Corporation. Todos los derechos reservados.</p>
-        <p className="mt-1 text-slate-655 font-mono">Plataforma de Gestión Comercial con backend .NET 10 y React.</p>
+        <div className="flex justify-center gap-4 text-slate-400">
+          <button onClick={() => setIsFAQOpen(true)} className="hover:text-cyan-400 transition-colors">
+            Preguntas Frecuentes & Guías de Activación
+          </button>
+        </div>
       </footer>
     </div>
   );

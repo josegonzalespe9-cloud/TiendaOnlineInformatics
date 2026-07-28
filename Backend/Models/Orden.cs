@@ -26,5 +26,11 @@ public class Orden
     [Column(TypeName = "decimal(18,2)")]
     public decimal Total { get; set; }
 
+    [MaxLength(50)]
+    public string? CuponCodigo { get; set; }
+
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal DescuentoAplicado { get; set; } = 0m;
+
     public ICollection<DetalleOrden> Detalles { get; set; } = new List<DetalleOrden>();
 }

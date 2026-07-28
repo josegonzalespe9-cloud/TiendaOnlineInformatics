@@ -14,6 +14,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<Producto> Productos => Set<Producto>();
     public DbSet<Orden> Ordenes => Set<Orden>();
     public DbSet<DetalleOrden> DetalleOrdenes => Set<DetalleOrden>();
+    public DbSet<Cupon> Cupones => Set<Cupon>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -22,6 +23,11 @@ public class ApplicationDbContext : DbContext
         // Configuración de índice único para el Email de Usuario
         modelBuilder.Entity<Usuario>()
             .HasIndex(u => u.Email)
+            .IsUnique();
+
+        // Configuración de índice único para el Código de Cupón
+        modelBuilder.Entity<Cupon>()
+            .HasIndex(c => c.Codigo)
             .IsUnique();
 
         // Configurar la relación uno a muchos entre Usuario y Ordenes

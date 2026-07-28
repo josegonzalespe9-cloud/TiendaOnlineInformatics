@@ -16,8 +16,19 @@ builder.Services.ConfigureHttpJsonOptions(options => {
     options.SerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
 });
 
-// Configurar base de datos (PostgreSQL - Supabase) usando connection string de appsettings
+// Configurar base de datos (PostgreSQL - Supabase) usando connection string de appsettings o fallback seguro
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
+if (string.IsNullOrWhiteSpace(connectionString) || !connectionString.Contains("Host="))
+{
+    connectionString = builder.Configuration["DATABASE_URL"];
+}
+
+if (string.IsNullOrWhiteSpace(connectionString) || !connectionString.Contains("Host="))
+{
+    // Fallback directo a la cadena de conexión oficial de Supabase
+    connectionString = "Host=aws-0-us-east-1.pooler.supabase.com;Port=6543;Database=postgres;Username=postgres.llpdxrzrbsispgxrdxyn;Password=6Ff!?BdiL2L5,ZJ;SSL Mode=Require;Trust Server Certificate=True;No Reset On Close=true;Multiplexing=false;";
+}
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString)
@@ -162,6 +173,48 @@ using (var scope = app.Services.CreateScope())
             Console.WriteLine($"Advertencia al verificar columna Activo en Usuarios: {ex.Message}");
         }
 
+        // Verificar si la tabla Cupones existe, y si no, crearla
+        try
+        {
+            db.Database.ExecuteSqlRaw(@"
+                CREATE TABLE IF NOT EXISTS ""Cupones"" (
+                    ""Id"" SERIAL PRIMARY KEY,
+                    ""Codigo"" VARCHAR(50) NOT NULL UNIQUE,
+                    ""PorcentajeDescuento"" decimal(18,2) NOT NULL DEFAULT 0.00,
+                    ""MontoDescuentoFijo"" decimal(18,2) NOT NULL DEFAULT 0.00,
+                    ""EsPorcentaje"" BOOLEAN NOT NULL DEFAULT TRUE,
+                    ""Activo"" BOOLEAN NOT NULL DEFAULT TRUE,
+                    ""UsosMaximos"" INT NOT NULL DEFAULT 100,
+                    ""UsosActuales"" INT NOT NULL DEFAULT 0,
+                    ""FechaExpiracion"" TIMESTAMP WITH TIME ZONE NULL
+                );");
+            Console.WriteLine("Tabla Cupones verificada/creada con éxito.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Advertencia al verificar tabla Cupones: {ex.Message}");
+        }
+
+        // Verificar columnas en Ordenes (CuponCodigo, DescuentoAplicado)
+        try
+        {
+            db.Database.ExecuteSqlRaw(@"
+                DO $$ 
+                BEGIN 
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='Ordenes' AND column_name='CuponCodigo') THEN 
+                        ALTER TABLE ""Ordenes"" ADD COLUMN ""CuponCodigo"" VARCHAR(50) NULL;
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='Ordenes' AND column_name='DescuentoAplicado') THEN 
+                        ALTER TABLE ""Ordenes"" ADD COLUMN ""DescuentoAplicado"" decimal(18,2) NOT NULL DEFAULT 0.00;
+                    END IF;
+                END $$;");
+            Console.WriteLine("Columnas CuponCodigo y DescuentoAplicado en Ordenes verificadas/creadas con éxito.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Advertencia al verificar columnas de cupones en Ordenes: {ex.Message}");
+        }
+
         // Cargar y ejecutar el script SQL alter_imagen_url_length.sql directamente si existe
         var sqlPath = Path.Combine(app.Environment.ContentRootPath, "Data", "alter_imagen_url_length.sql");
         if (File.Exists(sqlPath))
@@ -255,8 +308,17 @@ using (var scope = app.Services.CreateScope())
                     // Note: existingProd.Activo se mantiene como está para no reactivar productos eliminados lógicamente
                 }
             }
+            // Semilla de Cupones Demostrativos
+            if (!db.Cupones.Any())
+            {
+                db.Cupones.AddRange(
+                    new Cupon { Codigo = "INFORMATICS10", PorcentajeDescuento = 10m, EsPorcentaje = true, Activo = true, UsosMaximos = 100, UsosActuales = 0 },
+                    new Cupon { Codigo = "BIENVENIDA5", MontoDescuentoFijo = 5m, EsPorcentaje = false, Activo = true, UsosMaximos = 50, UsosActuales = 0 }
+                );
+            }
+
             db.SaveChanges();
-            Console.WriteLine("Catálogo oficial sembrado y actualizado correctamente con costos de proveedor.");
+            Console.WriteLine("Catálogo oficial y cupones sembrados correctamente.");
         }
     }
     catch (Exception ex)
@@ -422,7 +484,7 @@ app.MapGet("/api/productos", async (ApplicationDbContext db) =>
     {
         var log = $"Fecha: {DateTime.UtcNow}\nComponente: GetProductos\nMensaje: {ex.Message}\nTraza: {ex.StackTrace}";
         Console.WriteLine(log);
-        return Results.Json(new { mensaje = "Error al obtener productos." }, statusCode: 500);
+        return Results.Json(new { mensaje = "Error al obtener productos.", detalle = ex.Message }, statusCode: 500);
     }
 });
 
@@ -465,12 +527,39 @@ app.MapPost("/api/ordenes", async (CrearOrdenDto dto, ApplicationDbContext db) =
             });
         }
 
+        decimal descuentoAplicado = 0m;
+        string? cuponCodigoAplicado = null;
+
+        if (!string.IsNullOrWhiteSpace(dto.CuponCodigo))
+        {
+            var codigoNormalizado = dto.CuponCodigo.Trim().ToUpper();
+            var cupon = await db.Cupones.FirstOrDefaultAsync(c => c.Codigo == codigoNormalizado && c.Activo);
+            if (cupon != null && cupon.UsosActuales < cupon.UsosMaximos && (!cupon.FechaExpiracion.HasValue || cupon.FechaExpiracion.Value > DateTime.UtcNow))
+            {
+                if (cupon.EsPorcentaje)
+                {
+                    descuentoAplicado = Math.Round(totalAcumulado * (cupon.PorcentajeDescuento / 100m), 2);
+                }
+                else
+                {
+                    descuentoAplicado = Math.Min(totalAcumulado, cupon.MontoDescuentoFijo);
+                }
+
+                cuponCodigoAplicado = cupon.Codigo;
+                cupon.UsosActuales += 1;
+            }
+        }
+
+        decimal totalFinal = Math.Max(0m, totalAcumulado - descuentoAplicado);
+
         var orden = new Orden
         {
             UsuarioId = dto.UsuarioId,
             FechaCreacion = DateTime.UtcNow,
             Estado = "Pendiente",
-            Total = totalAcumulado,
+            Total = totalFinal,
+            CuponCodigo = cuponCodigoAplicado,
+            DescuentoAplicado = descuentoAplicado,
             Detalles = detalles
         };
 
@@ -482,7 +571,8 @@ app.MapPost("/api/ordenes", async (CrearOrdenDto dto, ApplicationDbContext db) =
             $"¡Hola Informatics! He registrado mi pedido en la web.\n\n" +
             $"*Pedido N°:* #{orden.Id}\n" +
             $"*Cliente:* {usuario.Nombre}\n" +
-            $"*Total:* S/ {orden.Total:F2}\n\n" +
+            (string.IsNullOrEmpty(orden.CuponCodigo) ? "" : $"*Cupón Aplicado:* {orden.CuponCodigo} (-S/ {orden.DescuentoAplicado:F2})\n") +
+            $"*Total Final:* S/ {orden.Total:F2}\n\n" +
             $"Por favor, indíquenme las cuentas de pago para recibir mis accesos."
         );
 
@@ -491,17 +581,163 @@ app.MapPost("/api/ordenes", async (CrearOrdenDto dto, ApplicationDbContext db) =
         return Results.Created($"/api/ordenes/{orden.Id}", new { 
             ordenId = orden.Id, 
             total = orden.Total, 
+            descuento = orden.DescuentoAplicado,
+            cupon = orden.CuponCodigo,
             estado = orden.Estado, 
             redirectUrl = whatsappUrl 
         });
     }
     catch (Exception ex)
     {
-        var log = $"Fecha: {DateTime.UtcNow}\nComponente: PostOrden\nMensaje: {ex.Message}\nTraza: {ex.StackTrace}";
+        var log = $"Fecha: {DateTime.UtcNow}\nComponente: CrearOrden\nMensaje: {ex.Message}\nTraza: {ex.StackTrace}";
         Console.WriteLine(log);
-        return Results.Json(new { mensaje = "Error al crear la orden." }, statusCode: 500);
+        return Results.Json(new { mensaje = "Error al procesar la orden.", detalle = ex.Message }, statusCode: 500);
     }
 });
+
+// 4b. VALIDAR CUPÓN DE DESCUENTO
+app.MapPost("/api/cupones/validar", async (ValidarCuponDto dto, ApplicationDbContext db) =>
+{
+    try
+    {
+        if (string.IsNullOrWhiteSpace(dto.Codigo))
+        {
+            return Results.BadRequest(new { mensaje = "Ingrese un código de cupón." });
+        }
+
+        var codigo = dto.Codigo.Trim().ToUpper();
+        var cupon = await db.Cupones.FirstOrDefaultAsync(c => c.Codigo == codigo);
+
+        if (cupon == null || !cupon.Activo)
+        {
+            return Results.BadRequest(new { mensaje = "El cupón ingresado no existe o no está activo." });
+        }
+
+        if (cupon.UsosActuales >= cupon.UsosMaximos)
+        {
+            return Results.BadRequest(new { mensaje = "Este cupón ha alcanzado el límite máximo de usos." });
+        }
+
+        if (cupon.FechaExpiracion.HasValue && cupon.FechaExpiracion.Value < DateTime.UtcNow)
+        {
+            return Results.BadRequest(new { mensaje = "El cupón ingresado ha expirado." });
+        }
+
+        return Results.Ok(new
+        {
+            valido = true,
+            codigo = cupon.Codigo,
+            porcentajeDescuento = cupon.PorcentajeDescuento,
+            montoDescuentoFijo = cupon.MontoDescuentoFijo,
+            esPorcentaje = cupon.EsPorcentaje
+        });
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Error al validar cupón: {ex.Message}");
+        return Results.Json(new { mensaje = "Error al validar el cupón.", detalle = ex.Message }, statusCode: 500);
+    }
+});
+
+// 4c. OBTENER LICENCIAS PRÓXIMAS A VENCER PARA ALERTAS DE CLIENTE
+app.MapGet("/api/licencias/renovaciones/{usuarioId}", async (int usuarioId, ApplicationDbContext db) =>
+{
+    try
+    {
+        var hoy = DateTime.UtcNow.Date;
+        var limite7Dias = hoy.AddDays(7);
+
+        var licenciasPorVencer = await db.DetalleOrdenes
+            .Include(d => d.Producto)
+            .Include(d => d.Orden)
+            .Where(d => d.Orden != null 
+                     && d.Orden.UsuarioId == usuarioId 
+                     && d.Orden.Estado == "Completada"
+                     && d.FechaVencimiento != null 
+                     && d.FechaVencimiento.Value.Date <= limite7Dias)
+            .Select(d => new
+            {
+                detalleId = d.Id,
+                productoId = d.ProductoId,
+                productoNombre = d.Producto != null ? d.Producto.Nombre : "Licencia",
+                fechaVencimiento = d.FechaVencimiento,
+                diasRestantes = (d.FechaVencimiento.Value.Date - hoy).Days,
+                clave = d.ClaveEntregada
+            })
+            .ToListAsync();
+
+        return Results.Ok(licenciasPorVencer);
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Error al obtener licencias por vencer: {ex.Message}");
+        return Results.Json(new { mensaje = "Error al consultar renovaciones.", detalle = ex.Message }, statusCode: 500);
+    }
+});
+
+// 4d. GESTIÓN DE CUPONES (ADMIN) - LISTAR
+app.MapGet("/api/cupones", async (ApplicationDbContext db) =>
+{
+    try
+    {
+        var cupones = await db.Cupones.OrderByDescending(c => c.Id).ToListAsync();
+        return Results.Ok(cupones);
+    }
+    catch (Exception ex)
+    {
+        return Results.Json(new { mensaje = "Error al listar cupones.", detalle = ex.Message }, statusCode: 500);
+    }
+}).RequireAdminRole();
+
+// 4e. GESTIÓN DE CUPONES (ADMIN) - CREAR
+app.MapPost("/api/cupones", async (Cupon cupon, ApplicationDbContext db) =>
+{
+    try
+    {
+        if (string.IsNullOrWhiteSpace(cupon.Codigo))
+        {
+            return Results.BadRequest(new { mensaje = "El código de cupón es requerido." });
+        }
+
+        cupon.Codigo = cupon.Codigo.Trim().ToUpper();
+
+        if (await db.Cupones.AnyAsync(c => c.Codigo == cupon.Codigo))
+        {
+            return Results.BadRequest(new { mensaje = "Ya existe un cupón registrado con este código." });
+        }
+
+        db.Cupones.Add(cupon);
+        await db.SaveChangesAsync();
+
+        return Results.Created($"/api/cupones/{cupon.Id}", cupon);
+    }
+    catch (Exception ex)
+    {
+        return Results.Json(new { mensaje = "Error al crear el cupón.", detalle = ex.Message }, statusCode: 500);
+    }
+}).RequireAdminRole();
+
+// 4f. GESTIÓN DE CUPONES (ADMIN) - CAMBIAR ESTADO
+app.MapPut("/api/cupones/{id}/estado", async (int id, ApplicationDbContext db) =>
+{
+    try
+    {
+        var cupon = await db.Cupones.FindAsync(id);
+        if (cupon == null)
+        {
+            return Results.NotFound(new { mensaje = "Cupón no encontrado." });
+        }
+
+        cupon.Activo = !cupon.Activo;
+        await db.SaveChangesAsync();
+
+        return Results.Ok(cupon);
+    }
+    catch (Exception ex)
+    {
+        return Results.Json(new { mensaje = "Error al actualizar estado del cupón.", detalle = ex.Message }, statusCode: 500);
+    }
+}).RequireAdminRole();
 
 // 5. PANEL DE CLIENTE: LICENCIAS Y ESTADOS TEMPORALES
 app.MapGet("/api/ordenes/cliente/{usuarioId}", async (int usuarioId, HttpContext httpContext, ApplicationDbContext db) =>
@@ -1162,7 +1398,8 @@ app.Run();
 public record LoginDto(string Email, string Password);
 public record RegisterDto(string Nombre, string Email, string PasswordHash, string WhatsApp);
 public record ItemOrdenDto(int ProductoId, int Cantidad);
-public record CrearOrdenDto(int UsuarioId, List<ItemOrdenDto> Items);
+public record CrearOrdenDto(int UsuarioId, List<ItemOrdenDto> Items, string? CuponCodigo = null);
+public record ValidarCuponDto(string Codigo);
 public record CompletarOrdenDto(Dictionary<int, string>? ClavesPorDetalle);
 public record EditarOrdenDto(List<ItemOrdenDto> Items);
 public record RegistrarClienteDto(string Nombre, string Email, string? Dni, string? Telefono, string PasswordInicial);

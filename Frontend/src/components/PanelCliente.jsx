@@ -1,36 +1,44 @@
 import React, { useState, useEffect } from 'react';
 import { useCart } from '../context/CartContext';
-import { User, ShieldAlert, Key, Calendar, RefreshCw, AlertTriangle, CheckCircle, ExternalLink, Trash2 } from 'lucide-react';
+import { User, ShieldAlert, Key, Calendar, RefreshCw, AlertTriangle, CheckCircle, ExternalLink, Trash2, BellRing } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import { API_URL } from '../services/api';
-import { showSuccess, showError, showWarning, showConfirm } from '../utils/alerts';
+import { showSuccess, showError, showConfirm } from '../utils/alerts';
 
 export default function PanelCliente() {
   const { user, token } = useCart();
   const [servicios, setServicios] = useState([]);
+  const [alertasRenovacion, setAlertasRenovacion] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchServicios = async () => {
-      if (user === null || user === undefined || !user.id || token === null || token === undefined || token === '') {
+      if (!user || !user.id || !token) {
         return;
       }
       
       try {
         setLoading(true);
+        // 1. Obtener servicios del cliente
         const response = await fetch(`${API_URL}/api/ordenes/cliente/${user.id}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
         });
-        if (!response.ok) {
-          throw new Error('Error al obtener licencias de cliente');
+
+        if (response.ok) {
+          const data = await response.json();
+          setServicios(data);
         }
-        const data = await response.json();
-        setServicios(data);
+
+        // 2. Obtener licencias por vencer en 7 días para el banner de alertas
+        const resAlertas = await fetch(`${API_URL}/api/licencias/renovaciones/${user.id}`);
+        if (resAlertas.ok) {
+          const dataAlertas = await resAlertas.json();
+          setAlertasRenovacion(dataAlertas);
+        }
       } catch (error) {
         console.error("Error al obtener servicios:", error);
-        // Respaldo de demostración si falla la base de datos
         setServicios([
           {
             detalleId: 1,
@@ -39,22 +47,10 @@ export default function PanelCliente() {
             duracionMeses: 12,
             clave: "CANVA-TEAM-INVITE-XYZ123",
             estadoOrden: "Completada",
-            fechaActivacion: new Date(2026, 5, 10).toISOString(), // Mock representation
+            fechaActivacion: new Date(2026, 5, 10).toISOString(),
             fechaVencimiento: "2026-07-10T00:00:00Z",
             mesesRestantes: 12,
             expirado: false
-          },
-          {
-            detalleId: 2,
-            productoNombre: "Netflix Premium (1 Mes)",
-            categoria: "Streaming",
-            duracionMeses: 1,
-            clave: "User: streaming10@informatics.pe | Pass: secret99",
-            estadoOrden: "Completada",
-            fechaActivacion: "2026-06-01T00:00:00Z",
-            fechaVencimiento: "2026-07-01T00:00:00Z", // Expira hoy o ya expiró
-            mesesRestantes: 0,
-            expirado: true
           }
         ]);
       } finally {
@@ -73,9 +69,10 @@ export default function PanelCliente() {
     try {
       const whatsappAdmin = "51984497138";
       const mensaje = encodeURIComponent(
-        `¡Hola Informatics! Quiero renovar mi suscripción de *${nombreProducto}*.\n\n` +
-        `Mi correo es: ${user.email}\n` +
-        `Por favor, indíquenme el método para continuar.`
+        `¡Hola Informatics! Deseo renovar mi suscripción de *${nombreProducto}*.\n\n` +
+        `Cliente: ${user.nombre}\n` +
+        `Correo: ${user.email}\n` +
+        `Por favor, indíquenme las cuentas de pago para extender mi acceso.`
       );
       window.open(`https://api.whatsapp.com/send?phone=${whatsappAdmin}&text=${mensaje}`, '_blank');
     } catch (err) {
@@ -117,6 +114,7 @@ export default function PanelCliente() {
           }
           return [];
         });
+        setAlertasRenovacion((prev) => prev.filter(a => a.detalleId !== detalleId));
         showSuccess("Licencia Eliminada", "Licencia eliminada con éxito.");
       } else {
         const errorData = response ? await response.json() : null;
@@ -173,6 +171,35 @@ export default function PanelCliente() {
           )}
         </div>
       </div>
+
+      {/* Banner Destacado de Alertas de Renovación Próxima */}
+      {alertasRenovacion.length > 0 && (
+        <div className="bg-gradient-to-r from-amber-500/10 via-slate-900 to-amber-500/10 border border-amber-500/30 rounded-2xl p-5 mb-8 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4 animate-fade-in">
+          <div className="flex items-center gap-3">
+            <div className="bg-amber-500/20 text-amber-400 p-3 rounded-xl border border-amber-500/30">
+              <BellRing className="w-6 h-6 animate-pulse" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-amber-300">
+                ⚠️ Alerta de Renovación Próxima ({alertasRenovacion.length} {alertasRenovacion.length === 1 ? 'Licencia' : 'Licencias'})
+              </h3>
+              <p className="text-xs text-slate-300 mt-0.5">
+                {alertasRenovacion.length === 1 
+                  ? `Tu suscripción de "${alertasRenovacion[0].productoNombre}" vence pronto. Renueva ahora para no perder tu acceso.`
+                  : 'Tienes licencias a punto de vencer. Garantiza la continuidad de tus servicios en 1 clic.'}
+              </p>
+            </div>
+          </div>
+          
+          <button
+            onClick={() => handleRenovacion(alertasRenovacion.map(a => a.productoNombre).join(', '))}
+            className="w-full sm:w-auto whitespace-nowrap bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold px-5 py-2.5 rounded-xl text-xs transition-all shadow-lg hover:shadow-amber-500/20 flex items-center justify-center gap-2"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Renovar Licencia en 1 Clic
+          </button>
+        </div>
+      )}
 
       {/* Título Licencias */}
       <h2 className="text-xl font-bold text-slate-100 mb-6 flex items-center gap-2">
@@ -301,9 +328,10 @@ export default function PanelCliente() {
                     ser.duracionMeses > 0 && (
                       <button
                         onClick={() => handleRenovacion(ser.productoNombre)}
-                        className="bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-slate-100 px-4 py-2 rounded-lg text-xs transition-all"
+                        className="bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-slate-100 px-4 py-2 rounded-lg text-xs transition-all flex items-center gap-1.5"
                       >
-                        Pedir Soporte / Renovación
+                        <RefreshCw className="w-3.5 h-3.5 text-cyan-400" />
+                        Renovar Licencia
                       </button>
                     )
                   )}

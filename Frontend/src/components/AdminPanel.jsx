@@ -3,7 +3,7 @@ import { useCart } from '../context/CartContext';
 import { 
   FileText, Key, AlertTriangle, CheckSquare, RefreshCw, 
   ShieldAlert, CheckCircle2, Package, Users, BarChart3, Plus, 
-  Trash2, Edit3, Save, X, Search, ChevronLeft, ChevronRight, TrendingUp, Info, Eye, EyeOff, Download
+  Trash2, Edit3, Save, X, Search, ChevronLeft, ChevronRight, TrendingUp, Info, Eye, EyeOff, Download, Tag
 } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import { API_URL } from '../services/api';
@@ -11,7 +11,112 @@ import { showSuccess, showError, showWarning, showConfirm } from '../utils/alert
 
 export default function AdminPanel() {
   const { user, token } = useCart();
-  const [tab, setTab] = useState('ordenes'); // 'ordenes' | 'productos' | 'clientes' | 'reportes'
+  const [tab, setTab] = useState('ordenes'); // 'ordenes' | 'productos' | 'clientes' | 'cupones' | 'reportes'
+
+  // --- ESTADOS Y HANDLERS PARA CUPONES ---
+  const [cupones, setCupones] = useState([]);
+  const [loadingCupones, setLoadingCupones] = useState(false);
+  const [cuponForm, setCuponForm] = useState({
+    codigo: '',
+    porcentajeDescuento: '10',
+    montoDescuentoFijo: '0',
+    esPorcentaje: true,
+    usosMaximos: '100'
+  });
+
+  const fetchCupones = async () => {
+    if (!token) return;
+    try {
+      setLoadingCupones(true);
+      const res = await fetch(`${API_URL}/api/cupones`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCupones(data);
+      }
+    } catch (err) {
+      console.error("Error al cargar cupones:", err);
+    } finally {
+      setLoadingCupones(false);
+    }
+  };
+
+  const submitCuponForm = async (e) => {
+    e.preventDefault();
+    if (!token || !cuponForm.codigo.trim()) return;
+
+    try {
+      const payload = {
+        codigo: cuponForm.codigo.trim().toUpperCase(),
+        porcentajeDescuento: parseFloat(cuponForm.porcentajeDescuento) || 0,
+        montoDescuentoFijo: parseFloat(cuponForm.montoDescuentoFijo) || 0,
+        esPorcentaje: cuponForm.esPorcentaje,
+        usosMaximos: parseInt(cuponForm.usosMaximos, 10) || 100,
+        activo: true
+      };
+
+      const res = await fetch(`${API_URL}/api/cupones`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        showSuccess("¡Cupón Creado!", `El cupón ${payload.codigo} se registró correctamente.`);
+        setCuponForm({
+          codigo: '',
+          porcentajeDescuento: '10',
+          montoDescuentoFijo: '0',
+          esPorcentaje: true,
+          usosMaximos: '100'
+        });
+        await fetchCupones();
+      } else {
+        const errData = await res.json();
+        showError("Error al crear cupón", errData.mensaje || "No se pudo registrar el cupón.");
+      }
+    } catch (err) {
+      console.error("Error al crear cupón:", err);
+      showError("Error de Servidor", "Inconveniente al procesar la solicitud.");
+    }
+  };
+
+  const handleToggleCuponEstado = async (cuponId) => {
+    if (!token || !cuponId) return;
+    try {
+      const res = await fetch(`${API_URL}/api/cupones/${cuponId}/estado`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        await fetchCupones();
+      }
+    } catch (err) {
+      console.error("Error al alternar estado del cupón:", err);
+    }
+  };
+
+  const handleEnviarNotificacionWhatsApp = (ord) => {
+    if (!ord || !ord.usuario) return;
+    const whatsappCliente = ord.usuario.whatsApp || ord.usuario.whatsapp || ord.usuario.telefono || '';
+    let numeroLimpio = whatsappCliente.replace(/\D/g, '');
+    if (numeroLimpio.length === 9) numeroLimpio = '51' + numeroLimpio;
+
+    let mensajeClaves = ord.detalles?.map(d => `- *${d.producto?.nombre || 'Licencia'}*: ${d.clave || 'Asignada'}`).join('\n') || '';
+
+    const mensaje = encodeURIComponent(
+      `¡Hola ${ord.usuario.nombre}! 🚀 Tu pedido *#${ord.id}* en Informatics ha sido completado.\n\n` +
+      `*Licencia(s) / Acceso(s) Entregados:*\n${mensajeClaves}\n\n` +
+      `*Guía de Activación y Ayuda:* https://tienda-online-informatics.vercel.app/\n\n` +
+      `¡Gracias por confiar en Informatics!`
+    );
+
+    window.open(`https://api.whatsapp.com/send?phone=${numeroLimpio}&text=${mensaje}`, '_blank');
+  };
 
   // Utilidad de Alerta Local para reconfigurar alert() a SweetAlert2
   const alert = (msg) => {
@@ -904,6 +1009,15 @@ export default function AdminPanel() {
           Gestión de Clientes
         </button>
         <button
+          onClick={() => { setTab('cupones'); fetchCupones(); }}
+          className={`pb-3 font-bold text-sm transition-all border-b-2 flex items-center gap-2 whitespace-nowrap ${
+            tab === 'cupones' ? 'border-sky-500 text-sky-400' : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Tag className="w-4.5 h-4.5" />
+          Cupones de Descuento
+        </button>
+        <button
           onClick={() => setTab('reportes')}
           className={`pb-3 font-bold text-sm transition-all border-b-2 flex items-center gap-2 whitespace-nowrap ${
             tab === 'reportes' ? 'border-sky-500 text-sky-400' : 'border-transparent text-slate-400 hover:text-slate-200'
@@ -1058,12 +1172,18 @@ export default function AdminPanel() {
                             ) : ord.estado === 'Cancelada' ? (
                               <span className="text-xs text-rose-500 font-bold uppercase tracking-wider">Cancelada</span>
                             ) : (
-                              <div className="space-y-1 max-w-xs">
+                              <div className="space-y-2 max-w-xs">
                                 {ord.detalles.map((d) => (
                                   <div key={d.id} className="text-xs text-slate-400 truncate font-mono" title={d.clave}>
-                                    <span className="text-slate-655 font-sans">{d.producto?.nombre}:</span> {d.clave}
+                                    <span className="text-slate-400 font-sans">{d.producto?.nombre}:</span> {d.clave}
                                   </div>
                                 ))}
+                                <button
+                                  onClick={() => handleEnviarNotificacionWhatsApp(ord)}
+                                  className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold px-2.5 py-1 rounded-md text-[11px] transition-all flex items-center justify-center gap-1.5"
+                                >
+                                  <span>💬 Notificar por WhatsApp</span>
+                                </button>
                               </div>
                             )}
                           </td>
@@ -1983,6 +2103,157 @@ export default function AdminPanel() {
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* --- TAB CUPONES DE DESCUENTO --- */}
+      {tab === 'cupones' && (
+        <div className="space-y-8">
+          {/* Formulario de Creación de Cupones */}
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
+            <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2">
+              <Tag className="w-5 h-5 text-cyan-400" />
+              Crear Nuevo Código de Cupón / Descuento
+            </h2>
+
+            <form onSubmit={submitCuponForm} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div>
+                <label className="text-xs font-semibold text-slate-400 block mb-1">Código del Cupón</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ej. BIENVENIDA15"
+                  value={cuponForm.codigo}
+                  onChange={(e) => setCuponForm({ ...cuponForm, codigo: e.target.value.toUpperCase() })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white uppercase focus:border-cyan-400 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-400 block mb-1">Tipo de Descuento</label>
+                <select
+                  value={cuponForm.esPorcentaje ? 'porcentaje' : 'fijo'}
+                  onChange={(e) => setCuponForm({ ...cuponForm, esPorcentaje: e.target.value === 'porcentaje' })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white focus:border-cyan-400 focus:outline-none"
+                >
+                  <option value="porcentaje">Porcentaje (%)</option>
+                  <option value="fijo">Monto Fijo (S/)</option>
+                </select>
+              </div>
+
+              {cuponForm.esPorcentaje ? (
+                <div>
+                  <label className="text-xs font-semibold text-slate-400 block mb-1">Porcentaje (%)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="1"
+                    max="100"
+                    required
+                    placeholder="10"
+                    value={cuponForm.porcentajeDescuento}
+                    onChange={(e) => setCuponForm({ ...cuponForm, porcentajeDescuento: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white focus:border-cyan-400 focus:outline-none"
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label className="text-xs font-semibold text-slate-400 block mb-1">Descuento Fijo (S/)</label>
+                  <input
+                    type="number"
+                    step="0.50"
+                    min="1"
+                    required
+                    placeholder="5.00"
+                    value={cuponForm.montoDescuentoFijo}
+                    onChange={(e) => setCuponForm({ ...cuponForm, montoDescuentoFijo: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white focus:border-cyan-400 focus:outline-none"
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="text-xs font-semibold text-slate-400 block mb-1">Usos Máximos</label>
+                <input
+                  type="number"
+                  min="1"
+                  required
+                  placeholder="100"
+                  value={cuponForm.usosMaximos}
+                  onChange={(e) => setCuponForm({ ...cuponForm, usosMaximos: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white focus:border-cyan-400 focus:outline-none"
+                />
+              </div>
+
+              <div className="flex items-end">
+                <button
+                  type="submit"
+                  className="w-full bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold p-3 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-cyan-500/10"
+                >
+                  <Plus className="w-4 h-4" />
+                  Guardar Cupón
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Lista de Cupones */}
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
+            <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+              <Tag className="w-5 h-5 text-sky-400" />
+              Cupones Registrados
+            </h3>
+
+            {loadingCupones ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-cyan-400"></div>
+              </div>
+            ) : cupones.length === 0 ? (
+              <p className="text-slate-400 text-sm text-center py-8">No hay cupones registrados actualmente.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-800 text-xs font-semibold text-slate-400">
+                      <th className="py-3 px-4">Código</th>
+                      <th className="py-3 px-4">Descuento</th>
+                      <th className="py-3 px-4">Usos</th>
+                      <th className="py-3 px-4">Estado</th>
+                      <th className="py-3 px-4 text-right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60 text-xs">
+                    {cupones.map((c) => (
+                      <tr key={c.id} className="hover:bg-slate-800/40 transition-all">
+                        <td className="py-3 px-4 font-mono font-bold text-cyan-400">{c.codigo}</td>
+                        <td className="py-3 px-4 text-slate-200">
+                          {c.esPorcentaje ? `${c.porcentajeDescuento}%` : `S/ ${c.montoDescuentoFijo.toFixed(2)}`}
+                        </td>
+                        <td className="py-3 px-4 text-slate-300">
+                          {c.usosActuales} / {c.usosMaximos}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${
+                            c.activo ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                          }`}>
+                            {c.activo ? 'Activo' : 'Inactivo'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <button
+                            onClick={() => handleToggleCuponEstado(c.id)}
+                            className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg text-xs transition-all font-semibold"
+                          >
+                            {c.activo ? 'Desactivar' : 'Activar'}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
