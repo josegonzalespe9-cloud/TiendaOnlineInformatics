@@ -286,7 +286,15 @@ using (var scope = app.Services.CreateScope())
                 new Producto { Nombre = "Office Profesional Plus 2021", Descripcion = "Licencia perpetua de Office 2021", Precio = 35.00m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = "/office2021.png", CostoProveedor = 15.00m, Activo = true },
                 new Producto { Nombre = "Office Profesional Plus 2024", Descripcion = "Licencia perpetua de Office 2024", Precio = 45.00m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = "/office2024.png", CostoProveedor = 20.00m, Activo = true },
                 new Producto { Nombre = "Nitro 14", Descripcion = "Editor y creador de PDF profesional", Precio = 30.00m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = "/nitro14.png", CostoProveedor = 12.00m, Activo = true },
-                new Producto { Nombre = "Filmora", Descripcion = "Editor de video simple y creativo perpetuo", Precio = 40.00m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = "/filmora.png", CostoProveedor = 18.00m, Activo = true }
+                new Producto { Nombre = "Filmora", Descripcion = "Editor de video simple y creativo perpetuo", Precio = 40.00m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = "/filmora.png", CostoProveedor = 18.00m, Activo = true },
+                new Producto { Nombre = "Internet Download Manager (IDM)", Descripcion = "Licencia perpetua del acelerador de descargas #1 del mundo para Windows", Precio = 29.00m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = "/idm.png", CostoProveedor = 12.00m, Activo = true },
+                new Producto { Nombre = "WinRAR Pro", Descripcion = "Licencia permanente oficial del compresor y descompresor universal", Precio = 19.90m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = "/winrar.png", CostoProveedor = 8.00m, Activo = true },
+                new Producto { Nombre = "Malwarebytes Premium (1 Año)", Descripcion = "Protección anti-malware, ransomware y exploits en tiempo real para 1 PC", Precio = 35.00m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/malwarebytes.png", CostoProveedor = 15.00m, Activo = true },
+                new Producto { Nombre = "NordVPN (1 Año)", Descripcion = "VPN de alta velocidad para streaming, privacidad y seguridad sin registros", Precio = 49.90m, DuracionMeses = 12, Categoria = "Software", ImagenUrl = "/nordvpn.png", CostoProveedor = 20.00m, Activo = true },
+                new Producto { Nombre = "Microsoft Project 2024 Pro", Descripcion = "Gestión profesional de proyectos, cronogramas y diagramas de Gantt", Precio = 49.90m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = "/project.png", CostoProveedor = 22.00m, Activo = true },
+                new Producto { Nombre = "Microsoft Visio 2024 Pro", Descripcion = "Creación de diagramas de flujo, mapas de red y esquemas de ingeniería", Precio = 49.90m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = "/visio.png", CostoProveedor = 22.00m, Activo = true },
+                new Producto { Nombre = "Office Hogar y Empresas 2024 (Mac & PC)", Descripcion = "Licencia perpetua oficial compatible con MacOS y Windows vinculable a tu cuenta Microsoft", Precio = 59.90m, DuracionMeses = 0, Categoria = "Software", ImagenUrl = "/office_mac.png", CostoProveedor = 28.00m, Activo = true },
+                new Producto { Nombre = "Claude Pro (1 Mes)", Descripcion = "Acceso premium a Claude 3.5 Sonnet de Anthropic con alta capacidad y proyectos", Precio = 24.90m, DuracionMeses = 1, Categoria = "IA", ImagenUrl = "/claude.png", CostoProveedor = 12.00m, Activo = true }
             };
 
             foreach (var p in catalogToSeed)
@@ -332,9 +340,12 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.UseHttpsRedirection();
-app.UseStaticFiles();
 app.UseCors("AllowReactApp");
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
+app.UseStaticFiles();
 
 // --- ENDPOINTS DE LA API CON MANEJO DE ERRORES BLINDADO ---
 
@@ -1012,12 +1023,12 @@ app.MapGet("/api/admin/renovaciones", async (ApplicationDbContext db) =>
 
 // --- NUEVOS ENDPOINTS ARCHITECTURA EMPRESARIAL ---
 
-// 9. CRUD PRODUCTOS - LISTAR TODOS (SÓLO RETORNA PRODUCTOS CON ACTIVO == TRUE)
+// 9. CRUD PRODUCTOS - LISTAR TODOS (RETORNA TODOS PARA CONTROL ADMINISTRATIVO)
 app.MapGet("/api/admin/productos", async (ApplicationDbContext db) =>
 {
     try
     {
-        var productos = await db.Productos.Where(p => p.Activo).OrderBy(p => p.Nombre).ToListAsync();
+        var productos = await db.Productos.OrderBy(p => p.Nombre).ToListAsync();
         return Results.Ok(productos);
     }
     catch (Exception ex)
@@ -1182,6 +1193,34 @@ app.MapDelete("/api/admin/productos/{id}", async (int id, ApplicationDbContext d
         var log = $"Fecha: {DateTime.UtcNow}\nComponente: AdminDeleteProducto\nMensaje: {ex.Message}\nTraza: {ex.StackTrace}";
         Console.WriteLine(log);
         return Results.Json(new { mensaje = "Error al desactivar el producto.", detalle = ex.Message }, statusCode: 500);
+    }
+}).RequireAdminRole();
+
+// 12b. CRUD PRODUCTOS - INTERRUPTOR DE VISIBILIDAD RÁPIDA (ACTIVO / OCULTO EN GESTIÓN)
+app.MapPut("/api/admin/productos/{id}/toggle-visibilidad", async (int id, ApplicationDbContext db) =>
+{
+    try
+    {
+        var product = await db.Productos.FindAsync(id);
+        if (product == null)
+        {
+            return Results.NotFound(new { mensaje = "Producto no encontrado." });
+        }
+
+        product.Activo = !product.Activo;
+        await db.SaveChangesAsync();
+
+        return Results.Ok(new { 
+            id = product.Id, 
+            activo = product.Activo, 
+            mensaje = product.Activo ? "Producto ahora es VISIBLE en la tienda pública." : "Producto ahora está OCULTO en modo gestión/borrador." 
+        });
+    }
+    catch (Exception ex)
+    {
+        var log = $"Fecha: {DateTime.UtcNow}\nComponente: AdminToggleVisibilidad\nMensaje: {ex.Message}\nTraza: {ex.StackTrace}";
+        Console.WriteLine(log);
+        return Results.Json(new { mensaje = "Error al alternar visibilidad del producto.", detalle = ex.Message }, statusCode: 500);
     }
 }).RequireAdminRole();
 

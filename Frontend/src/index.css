@@ -21,6 +21,33 @@
   background: #0ea5e9; /* bg-sky-500 */
 }
 
+/* Scrollbar horizontal ultra-visible y estilizado para tablas de administración */
+.horizontal-table-scrollbar::-webkit-scrollbar {
+  height: 12px;
+}
+
+.horizontal-table-scrollbar::-webkit-scrollbar-track {
+  background: #030712;
+  border-radius: 9999px;
+  border: 1px solid rgba(30, 41, 59, 0.8);
+}
+
+.horizontal-table-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(90deg, #0284c7, #10b981);
+  border-radius: 9999px;
+  border: 2px solid #030712;
+  box-shadow: 0 0 10px rgba(14, 165, 233, 0.5);
+  cursor: grab;
+}
+
+.horizontal-table-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(90deg, #38bdf8, #34d399);
+}
+
+.horizontal-table-scrollbar::-webkit-scrollbar-thumb:active {
+  cursor: grabbing;
+}
+
 body {
   margin: 0;
   padding: 0;
