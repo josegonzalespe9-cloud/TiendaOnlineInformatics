@@ -9,6 +9,7 @@ import AdminPanel from './components/AdminPanel';
 import BotonSoporteFloat from './components/BotonSoporteFloat';
 import ProtectedRoute from './components/ProtectedRoute';
 import FAQModal from './components/FAQModal';
+import VisitorTracker from './components/VisitorTracker';
 import { ShoppingCart, User, ShieldAlert, LogOut, Code, Menu, X, HelpCircle } from 'lucide-react';
 
 function Navigation({ onOpenFAQ }) {
@@ -232,6 +233,7 @@ function MainLayout() {
 
   return (
     <div className="flex flex-col min-h-screen">
+      <VisitorTracker />
       <Navigation onOpenFAQ={() => setIsFAQOpen(true)} />
 
       {/* Contenido Principal */}

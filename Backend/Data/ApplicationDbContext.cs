@@ -15,6 +15,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<Orden> Ordenes => Set<Orden>();
     public DbSet<DetalleOrden> DetalleOrdenes => Set<DetalleOrden>();
     public DbSet<Cupon> Cupones => Set<Cupon>();
+    public DbSet<Visita> Visitas => Set<Visita>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

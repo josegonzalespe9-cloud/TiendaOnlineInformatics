@@ -215,6 +215,35 @@ using (var scope = app.Services.CreateScope())
             Console.WriteLine($"Advertencia al verificar columnas de cupones en Ordenes: {ex.Message}");
         }
 
+        // Verificar si la tabla Visitas existe para Analítica en Tiempo Real, y si no, crearla
+        try
+        {
+            db.Database.ExecuteSqlRaw(@"
+                CREATE TABLE IF NOT EXISTS ""Visitas"" (
+                    ""Id"" SERIAL PRIMARY KEY,
+                    ""SessionId"" VARCHAR(100) NOT NULL,
+                    ""Ruta"" VARCHAR(255) NOT NULL,
+                    ""TituloPagina"" VARCHAR(255),
+                    ""Dispositivo"" VARCHAR(50) NOT NULL DEFAULT 'Escritorio',
+                    ""Navegador"" VARCHAR(50) NOT NULL DEFAULT 'Desconocido',
+                    ""SistemaOperativo"" VARCHAR(50) NOT NULL DEFAULT 'Desconocido',
+                    ""Referrer"" VARCHAR(255) DEFAULT 'Directo',
+                    ""Pais"" VARCHAR(100) DEFAULT 'Perú',
+                    ""UsuarioId"" INTEGER,
+                    ""UsuarioNombre"" VARCHAR(150),
+                    ""UsuarioEmail"" VARCHAR(150),
+                    ""FechaCreacion"" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                );
+                CREATE INDEX IF NOT EXISTS ""IX_Visitas_FechaCreacion"" ON ""Visitas"" (""FechaCreacion"");
+                CREATE INDEX IF NOT EXISTS ""IX_Visitas_SessionId"" ON ""Visitas"" (""SessionId"");");
+            Console.WriteLine("Tabla Visitas e índices de analítica verificados/creados con éxito.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Advertencia al verificar tabla Visitas: {ex.Message}");
+        }
+
+
         // Cargar y ejecutar el script SQL alter_imagen_url_length.sql directamente si existe
         var sqlPath = Path.Combine(app.Environment.ContentRootPath, "Data", "alter_imagen_url_length.sql");
         if (File.Exists(sqlPath))
@@ -1431,6 +1460,144 @@ app.MapGet("/api/admin/reportes", async (ApplicationDbContext db) =>
     }
 }).RequireAdminRole();
 
+// =========================================================================
+// 19. ANALÍTICA Y TRÁFICO WEB EN VIVO - REGISTRAR VISITA PÚBLICA
+// =========================================================================
+app.MapPost("/api/visitas/registrar", async (RegistrarVisitaDto dto, ApplicationDbContext db) =>
+{
+    try
+    {
+        if (string.IsNullOrWhiteSpace(dto.SessionId) || string.IsNullOrWhiteSpace(dto.Ruta))
+        {
+            return Results.BadRequest(new { mensaje = "SessionId y Ruta son requeridos." });
+        }
+
+        var visita = new Visita
+        {
+            SessionId = dto.SessionId.Length > 100 ? dto.SessionId.Substring(0, 100) : dto.SessionId,
+            Ruta = dto.Ruta.Length > 255 ? dto.Ruta.Substring(0, 255) : dto.Ruta,
+            TituloPagina = string.IsNullOrWhiteSpace(dto.TituloPagina) ? null : (dto.TituloPagina.Length > 255 ? dto.TituloPagina.Substring(0, 255) : dto.TituloPagina),
+            Dispositivo = string.IsNullOrWhiteSpace(dto.Dispositivo) ? "Escritorio" : dto.Dispositivo,
+            Navegador = string.IsNullOrWhiteSpace(dto.Navegador) ? "Desconocido" : dto.Navegador,
+            SistemaOperativo = string.IsNullOrWhiteSpace(dto.SistemaOperativo) ? "Desconocido" : dto.SistemaOperativo,
+            Referrer = string.IsNullOrWhiteSpace(dto.Referrer) ? "Directo" : (dto.Referrer.Length > 255 ? dto.Referrer.Substring(0, 255) : dto.Referrer),
+            Pais = "Perú",
+            UsuarioId = dto.UsuarioId,
+            UsuarioNombre = dto.UsuarioNombre,
+            UsuarioEmail = dto.UsuarioEmail,
+            FechaCreacion = DateTime.UtcNow
+        };
+
+        db.Visitas.Add(visita);
+        await db.SaveChangesAsync();
+
+        return Results.Ok(new { ok = true, id = visita.Id });
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Error al registrar visita: {ex.Message}");
+        return Results.Ok(new { ok = false });
+    }
+});
+
+// =========================================================================
+// 20. ANALÍTICA Y TRÁFICO WEB EN VIVO - CONSULTA PARA PANEL DE ADMINISTRACIÓN
+// =========================================================================
+app.MapGet("/api/admin/visitas", async (ApplicationDbContext db) =>
+{
+    try
+    {
+        var hace10Minutos = DateTime.UtcNow.AddMinutes(-10);
+        var inicioHoy = DateTime.UtcNow.Date;
+
+        var totalVisitas = await db.Visitas.CountAsync();
+        var visitasHoy = await db.Visitas.CountAsync(v => v.FechaCreacion >= inicioHoy);
+        var visitantesUnicos = await db.Visitas.Select(v => v.SessionId).Distinct().CountAsync();
+        
+        // Sesiones activas en los últimos 10 minutos
+        var sesionesActivas = await db.Visitas
+            .Where(v => v.FechaCreacion >= hace10Minutos)
+            .Select(v => v.SessionId)
+            .Distinct()
+            .CountAsync();
+
+        // Últimas 50 visitas detalladas
+        var ultimasVisitas = await db.Visitas
+            .OrderByDescending(v => v.FechaCreacion)
+            .Take(50)
+            .Select(v => new
+            {
+                v.Id,
+                v.SessionId,
+                v.Ruta,
+                v.TituloPagina,
+                v.Dispositivo,
+                v.Navegador,
+                v.SistemaOperativo,
+                v.Referrer,
+                v.Pais,
+                v.UsuarioNombre,
+                v.UsuarioEmail,
+                v.FechaCreacion,
+                enLinea = v.FechaCreacion >= hace10Minutos
+            })
+            .ToListAsync();
+
+        // Páginas más visitadas (Top 10)
+        var paginasMasVistas = await db.Visitas
+            .GroupBy(v => v.Ruta)
+            .Select(g => new
+            {
+                ruta = g.Key,
+                total = g.Count()
+            })
+            .OrderByDescending(p => p.total)
+            .Take(10)
+            .ToListAsync();
+
+        // Desglose por dispositivo
+        var porDispositivo = await db.Visitas
+            .GroupBy(v => v.Dispositivo)
+            .Select(g => new
+            {
+                dispositivo = g.Key,
+                total = g.Count()
+            })
+            .OrderByDescending(d => d.total)
+            .ToListAsync();
+
+        // Desglose por origen / Referrer
+        var porOrigen = await db.Visitas
+            .GroupBy(v => v.Referrer ?? "Directo")
+            .Select(g => new
+            {
+                origen = g.Key,
+                total = g.Count()
+            })
+            .OrderByDescending(o => o.total)
+            .Take(6)
+            .ToListAsync();
+
+        return Results.Ok(new
+        {
+            totalVisitas,
+            visitasHoy,
+            visitantesUnicos,
+            enLineaAhora = sesionesActivas,
+            ultimasVisitas,
+            paginasMasVistas,
+            porDispositivo,
+            porOrigen
+        });
+    }
+    catch (Exception ex)
+    {
+        var log = $"Fecha: {DateTime.UtcNow}\nComponente: AdminGetVisitas\nMensaje: {ex.Message}\nTraza: {ex.StackTrace}";
+        Console.WriteLine(log);
+        return Results.Json(new { mensaje = "Error al obtener analítica de visitas.", detalle = ex.Message }, statusCode: 500);
+    }
+}).RequireAdminRole();
+
 app.Run();
 
 // --- DATA TRANSFER OBJECTS (DTOs) ---
@@ -1444,6 +1611,8 @@ public record EditarOrdenDto(List<ItemOrdenDto> Items);
 public record RegistrarClienteDto(string Nombre, string Email, string? Dni, string? Telefono, string PasswordInicial);
 public record EditarClienteDto(string Nombre, string Email, string? Dni, string? Telefono, string? AsignarNuevaContrasena);
 public record ProductoExternoDto(int Id, string Nombre, string Descripcion, decimal Precio, int DuracionMeses, string Categoria, string ImagenUrl, bool Activo);
+public record RegistrarVisitaDto(string SessionId, string Ruta, string? TituloPagina, string? Dispositivo, string? Navegador, string? SistemaOperativo, string? Referrer, int? UsuarioId, string? UsuarioNombre, string? UsuarioEmail);
+
 
 // --- JWT TOKEN GENERATION HELPER ---
 public static class JwtHelper

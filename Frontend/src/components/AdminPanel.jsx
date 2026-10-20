@@ -6,7 +6,8 @@ import {
   Trash2, Edit3, Save, X, Search, ChevronLeft, ChevronRight, TrendingUp, 
   Info, Eye, EyeOff, Download, Tag, Sparkles, Send, Share2, 
   FileSpreadsheet, DollarSign, Percent, Filter, ShieldCheck, Flame, 
-  ArrowUpRight, Clock, MessageSquare, Copy, Check
+  ArrowUpRight, Clock, MessageSquare, Copy, Check,
+  Activity, Radio, Smartphone, Monitor, Tablet, Globe
 } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import { API_URL } from '../services/api';
@@ -14,7 +15,7 @@ import { showSuccess, showError, showWarning, showConfirm, showToast } from '../
 
 export default function AdminPanel() {
   const { user, token } = useCart();
-  const [tab, setTab] = useState('ordenes'); // 'ordenes' | 'productos' | 'clientes' | 'cupones' | 'reportes'
+  const [tab, setTab] = useState('ordenes'); // 'ordenes' | 'productos' | 'clientes' | 'cupones' | 'reportes' | 'visitas'
 
   // --- FILTROS Y BÚSQUEDAS GLOBALES ---
   const [searchOrderQuery, setSearchOrderQuery] = useState('');
@@ -111,7 +112,31 @@ export default function AdminPanel() {
   const [reportes, setReportes] = useState(null);
   const [loadingReportes, setLoadingReportes] = useState(true);
 
+  // --- ESTADOS PARA ANALÍTICA Y TRÁFICO WEB EN VIVO ---
+  const [visitasData, setVisitasData] = useState(null);
+  const [loadingVisitas, setLoadingVisitas] = useState(false);
+  const [autoRefreshVisitas, setAutoRefreshVisitas] = useState(true);
+  const [filtroTipoVisita, setFiltroTipoVisita] = useState('todos'); // 'todos' | 'online' | 'usuarios'
+  const [searchVisitaQuery, setSearchVisitaQuery] = useState('');
+  const [ultimaActualizacionVisitas, setUltimaActualizacionVisitas] = useState(null);
+
   // --- 0. FUNCIONES DE AYUDA Y FORMATEO ---
+  const formatearTiempoTranscurrido = (fechaStr) => {
+    if (!fechaStr) return 'N/A';
+    try {
+      const fecha = new Date(fechaStr);
+      const diffMs = Date.now() - fecha.getTime();
+      const diffSec = Math.floor(diffMs / 1000);
+      if (diffSec < 60) return `Hace ${Math.max(1, diffSec)}s`;
+      const diffMin = Math.floor(diffSec / 60);
+      if (diffMin < 60) return `Hace ${diffMin}m`;
+      const diffHoras = Math.floor(diffMin / 60);
+      if (diffHoras < 24) return `Hace ${diffHoras}h`;
+      return fecha.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    } catch {
+      return fechaStr;
+    }
+  };
   const formatearFecha = (fechaStr) => {
     if (!fechaStr) return 'N/A';
     try {
@@ -159,6 +184,7 @@ export default function AdminPanel() {
     fetchClientes();
     fetchCupones();
     fetchReportes();
+    fetchVisitas(true);
   }, [user, token]);
 
   useEffect(() => {
@@ -167,6 +193,7 @@ export default function AdminPanel() {
     if (tab === 'productos') fetchProductos();
     if (tab === 'clientes') fetchClientes();
     if (tab === 'ordenes') fetchAdminData();
+    if (tab === 'visitas') fetchVisitas();
   }, [tab]);
 
   // --- 1. MÓDULO DE ÓRDENES: OBTENER DATOS ---
@@ -858,6 +885,36 @@ export default function AdminPanel() {
     }
   };
 
+  // --- 6. ANALÍTICA Y TRÁFICO WEB EN VIVO ---
+  const fetchVisitas = async (silencioso = false) => {
+    if (!token) return;
+    try {
+      if (!silencioso) setLoadingVisitas(true);
+      const res = await fetch(`${API_URL}/api/admin/visitas`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setVisitasData(data);
+        setUltimaActualizacionVisitas(new Date());
+      }
+    } catch (err) {
+      console.error("Error al cargar analítica de visitas:", err);
+    } finally {
+      if (!silencioso) setLoadingVisitas(false);
+    }
+  };
+
+  // Auto-refresco en vivo para la pestaña de Tráfico
+  useEffect(() => {
+    if (tab === 'visitas' && autoRefreshVisitas && token) {
+      const interval = setInterval(() => {
+        fetchVisitas(true);
+      }, 15000); // 15 segundos
+      return () => clearInterval(interval);
+    }
+  }, [tab, autoRefreshVisitas, token]);
+
   // --- CÁLCULO DE KPIS GLOBALES PARA EL DASHBOARD EJECUTIVO ---
   const metricasGlobales = useMemo(() => {
     const ordenesCompletadas = ordenes.filter(o => o.estado === 'Completada');
@@ -1075,6 +1132,7 @@ export default function AdminPanel() {
               fetchClientes();
               fetchCupones();
               fetchReportes();
+              fetchVisitas(true);
               showToast('Datos actualizados en tiempo real', 'info');
             }}
             className="w-full md:w-auto bg-slate-955 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-300 font-bold px-4 py-2.5 rounded-xl transition-all text-xs flex items-center justify-center gap-2 shadow-sm"
@@ -1181,7 +1239,8 @@ export default function AdminPanel() {
           { id: 'productos', label: 'Catálogo de Productos', icon: Package, badge: `${metricasGlobales.productosVisibles} activos` },
           { id: 'clientes', label: 'Gestión de Clientes', icon: Users, badge: `${clientes.length}` },
           { id: 'cupones', label: 'Marketing & Cupones', icon: Sparkles, badge: 'Growth' },
-          { id: 'reportes', label: 'Finanzas & Analítica', icon: BarChart3, badge: 'SLA' }
+          { id: 'reportes', label: 'Finanzas & Analítica', icon: BarChart3, badge: 'SLA' },
+          { id: 'visitas', label: 'Tráfico en Vivo', icon: Activity, badge: visitasData ? `${visitasData.enLineaAhora} en vivo` : 'Radar' }
         ].map((item) => {
           const Icon = item.icon;
           const activo = tab === item.id;
@@ -2682,6 +2741,443 @@ export default function AdminPanel() {
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* --- TAB 6: TRÁFICO WEB EN VIVO Y ANALÍTICA EN TIEMPO REAL --- */}
+      {/* ========================================================================= */}
+      {tab === 'visitas' && (
+        <div className="space-y-6 animate-fade-in">
+          {/* Cabecera Interactiva y Controles de Radar */}
+          <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-sky-950/40 border border-slate-800 rounded-3xl p-6 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2.5">
+                <div className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                </div>
+                <h2 className="text-xl font-black text-slate-100 flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-emerald-400" />
+                  Tráfico Web y Analítica en Vivo
+                </h2>
+              </div>
+              <p className="text-xs text-slate-400 mt-1">
+                Monitoreo activo de visitantes, páginas vistas, dispositivos y sesiones conectadas en tiempo real.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+              {/* Botón de Auto-actualizar Toggle */}
+              <button
+                type="button"
+                onClick={() => setAutoRefreshVisitas(!autoRefreshVisitas)}
+                className={`text-xs font-bold px-3.5 py-2 rounded-xl border transition-all flex items-center gap-2 ${
+                  autoRefreshVisitas 
+                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-sm shadow-emerald-500/10'
+                    : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700'
+                }`}
+              >
+                <Radio className={`w-3.5 h-3.5 ${autoRefreshVisitas ? 'text-emerald-400 animate-pulse' : 'text-slate-500'}`} />
+                {autoRefreshVisitas ? 'Auto-refresco 15s: Activo' : 'Auto-refresco: Pausado'}
+              </button>
+
+              {/* Botón Refrescar Manual */}
+              <button
+                type="button"
+                onClick={() => fetchVisitas()}
+                disabled={loadingVisitas}
+                className="bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-xs px-4 py-2 rounded-xl transition-all flex items-center gap-2 shadow-lg shadow-sky-500/20 active:scale-95 disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingVisitas ? 'animate-spin' : ''}`} />
+                Actualizar
+              </button>
+
+              {ultimaActualizacionVisitas && (
+                <span className="text-[11px] text-slate-500 hidden sm:inline">
+                  Sincronizado: {ultimaActualizacionVisitas.toLocaleTimeString('es-PE')}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* 4 KPIs Clave */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* KPI 1: En Línea Ahora */}
+            <div className="bg-slate-900 border border-emerald-500/30 rounded-2xl p-5 shadow-lg relative overflow-hidden group hover:border-emerald-500/50 transition-all">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none"></div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">En Línea Ahora</span>
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                </span>
+              </div>
+              <div className="text-3xl font-black text-emerald-400">
+                {visitasData?.enLineaAhora ?? 0}
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
+                <Clock className="w-3 h-3 text-slate-500" />
+                Activos en los últimos 10 min
+              </p>
+            </div>
+
+            {/* KPI 2: Visitas Hoy */}
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg relative overflow-hidden group hover:border-sky-500/30 transition-all">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Visitas Hoy</span>
+                <Eye className="w-4 h-4 text-sky-400" />
+              </div>
+              <div className="text-3xl font-black text-slate-100">
+                {visitasData?.visitasHoy ?? 0}
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
+                <TrendingUp className="w-3 h-3 text-sky-400" />
+                Páginas vistas desde medianoche
+              </p>
+            </div>
+
+            {/* KPI 3: Visitantes Únicos */}
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg relative overflow-hidden group hover:border-indigo-500/30 transition-all">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Visitantes Únicos</span>
+                <Users className="w-4 h-4 text-indigo-400" />
+              </div>
+              <div className="text-3xl font-black text-slate-100">
+                {visitasData?.visitantesUnicos ?? 0}
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
+                <ShieldCheck className="w-3 h-3 text-indigo-400" />
+                Sesiones únicas registradas
+              </p>
+            </div>
+
+            {/* KPI 4: Total Histórico */}
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg relative overflow-hidden group hover:border-amber-500/30 transition-all">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Histórico</span>
+                <Globe className="w-4 h-4 text-amber-400" />
+              </div>
+              <div className="text-3xl font-black text-slate-100">
+                {visitasData?.totalVisitas ?? 0}
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
+                <Sparkles className="w-3 h-3 text-amber-400" />
+                Interacciones globales
+              </p>
+            </div>
+          </div>
+
+          {/* Gráficas / Desgloses Secundarios */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* 1. Top Páginas Más Vistas */}
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-sky-400" />
+                  Páginas Más Populares
+                </h3>
+                <span className="text-[10px] text-slate-500 font-bold uppercase">Top 10</span>
+              </div>
+
+              <div className="space-y-3">
+                {(!visitasData?.paginasMasVistas || visitasData.paginasMasVistas.length === 0) ? (
+                  <p className="text-xs text-slate-500 italic py-4 text-center">Sin datos de navegación aún.</p>
+                ) : (
+                  (() => {
+                    const maxVisitas = Math.max(...visitasData.paginasMasVistas.map(p => p.total), 1);
+                    return visitasData.paginasMasVistas.map((item, idx) => {
+                      const pct = Math.round((item.total / maxVisitas) * 100);
+                      const etiqueta = item.ruta === '/' ? 'Inicio / Catálogo' : item.ruta;
+                      return (
+                        <div key={idx} className="space-y-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-semibold text-slate-300 truncate max-w-[200px]" title={item.ruta}>
+                              {etiqueta}
+                            </span>
+                            <span className="font-bold text-sky-400">{item.total} {item.total === 1 ? 'vista' : 'vistas'}</span>
+                          </div>
+                          <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                            <div 
+                              className="bg-gradient-to-r from-sky-500 to-indigo-500 h-full rounded-full transition-all duration-500"
+                              style={{ width: `${pct}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()
+                )}
+              </div>
+            </div>
+
+            {/* 2. Dispositivos */}
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2">
+                  <Smartphone className="w-4 h-4 text-emerald-400" />
+                  Dispositivos de Entrada
+                </h3>
+                <span className="text-[10px] text-slate-500 font-bold uppercase">Distribución</span>
+              </div>
+
+              <div className="space-y-3">
+                {(!visitasData?.porDispositivo || visitasData.porDispositivo.length === 0) ? (
+                  <p className="text-xs text-slate-500 italic py-4 text-center">Esperando visitas...</p>
+                ) : (
+                  (() => {
+                    const totalDisp = visitasData.porDispositivo.reduce((s, d) => s + d.total, 0) || 1;
+                    return visitasData.porDispositivo.map((item, idx) => {
+                      const pct = Math.round((item.total / totalDisp) * 100);
+                      const isMovil = item.dispositivo?.toLowerCase().includes('móvil') || item.dispositivo?.toLowerCase().includes('movil');
+                      const isTablet = item.dispositivo?.toLowerCase().includes('tablet');
+                      const IconDisp = isTablet ? Tablet : (isMovil ? Smartphone : Monitor);
+
+                      return (
+                        <div key={idx} className="bg-slate-955 border border-slate-800/80 rounded-2xl p-3 flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="bg-slate-800 p-2 rounded-xl text-emerald-400">
+                              <IconDisp className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-bold text-slate-200">{item.dispositivo}</p>
+                              <p className="text-[10px] text-slate-400">{item.total} sesiones ({pct}%)</p>
+                            </div>
+                          </div>
+                          <span className="text-xs font-extrabold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-lg border border-emerald-500/20">
+                            {pct}%
+                          </span>
+                        </div>
+                      );
+                    });
+                  })()
+                )}
+              </div>
+            </div>
+
+            {/* 3. Fuentes / Canales de Tráfico */}
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2">
+                  <Share2 className="w-4 h-4 text-indigo-400" />
+                  Fuentes de Tráfico
+                </h3>
+                <span className="text-[10px] text-slate-500 font-bold uppercase">Referrers</span>
+              </div>
+
+              <div className="space-y-3">
+                {(!visitasData?.porOrigen || visitasData.porOrigen.length === 0) ? (
+                  <p className="text-xs text-slate-500 italic py-4 text-center">Sin orígenes registrados.</p>
+                ) : (
+                  (() => {
+                    const totalOrig = visitasData.porOrigen.reduce((s, o) => s + o.total, 0) || 1;
+                    return visitasData.porOrigen.map((item, idx) => {
+                      const pct = Math.round((item.total / totalOrig) * 100);
+                      const esWhatsApp = item.origen?.toLowerCase().includes('whatsapp');
+                      const esGoogle = item.origen?.toLowerCase().includes('google');
+
+                      return (
+                        <div key={idx} className="flex items-center justify-between text-xs p-2.5 rounded-xl bg-slate-955 border border-slate-800">
+                          <div className="flex items-center gap-2 truncate">
+                            <span className={`w-2 h-2 rounded-full ${esWhatsApp ? 'bg-emerald-400' : esGoogle ? 'bg-sky-400' : 'bg-slate-500'}`}></span>
+                            <span className="font-semibold text-slate-200 truncate">{item.origen}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-slate-400 font-medium">{item.total}</span>
+                            <span className="text-[10px] text-indigo-300 font-bold bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/20">{pct}%</span>
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Registro de Actividad en Vivo (Feed de Últimas Visitas) */}
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-sky-400" />
+                  Bitácora de Navegación en Tiempo Real
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Últimos 50 movimientos registrados en la plataforma.
+                </p>
+              </div>
+
+              {/* Filtros rápidos y buscador */}
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                <div className="relative flex-grow sm:flex-grow-0">
+                  <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-2.5" />
+                  <input
+                    type="text"
+                    placeholder="Filtrar por ruta o usuario..."
+                    value={searchVisitaQuery}
+                    onChange={(e) => setSearchVisitaQuery(e.target.value)}
+                    className="bg-slate-955 border border-slate-800 text-slate-200 text-xs pl-8 pr-3 py-1.5 rounded-xl focus:border-sky-500 outline-none w-full sm:w-48"
+                  />
+                </div>
+
+                <div className="flex items-center bg-slate-955 border border-slate-800 rounded-xl p-0.5 text-xs">
+                  <button
+                    onClick={() => setFiltroTipoVisita('todos')}
+                    className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
+                      filtroTipoVisita === 'todos' ? 'bg-sky-500 text-slate-950' : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    Todos
+                  </button>
+                  <button
+                    onClick={() => setFiltroTipoVisita('online')}
+                    className={`px-2.5 py-1 rounded-lg font-bold transition-all flex items-center gap-1 ${
+                      filtroTipoVisita === 'online' ? 'bg-emerald-500 text-slate-950' : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                    En Línea
+                  </button>
+                  <button
+                    onClick={() => setFiltroTipoVisita('usuarios')}
+                    className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
+                      filtroTipoVisita === 'usuarios' ? 'bg-indigo-500 text-white' : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    Clientes
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Tabla de Visitas */}
+            <div className="overflow-x-auto rounded-2xl border border-slate-800/80">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-slate-950/70 border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                    <th className="py-3 px-4">Estado</th>
+                    <th className="py-3 px-4">Usuario / Visitante</th>
+                    <th className="py-3 px-4">Ruta / Página</th>
+                    <th className="py-3 px-4">Dispositivo & SO</th>
+                    <th className="py-3 px-4">Origen</th>
+                    <th className="py-3 px-4 text-right">Hora</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60 font-medium">
+                  {(() => {
+                    const ultimas = visitasData?.ultimasVisitas || [];
+                    const filtradas = ultimas.filter(v => {
+                      if (filtroTipoVisita === 'online' && !v.enLinea) return false;
+                      if (filtroTipoVisita === 'usuarios' && !v.usuarioNombre) return false;
+                      if (searchVisitaQuery) {
+                        const q = searchVisitaQuery.toLowerCase();
+                        const matchRuta = v.ruta?.toLowerCase().includes(q);
+                        const matchUser = v.usuarioNombre?.toLowerCase().includes(q) || v.usuarioEmail?.toLowerCase().includes(q);
+                        const matchDisp = v.dispositivo?.toLowerCase().includes(q) || v.navegador?.toLowerCase().includes(q);
+                        if (!matchRuta && !matchUser && !matchDisp) return false;
+                      }
+                      return true;
+                    });
+
+                    if (filtradas.length === 0) {
+                      return (
+                        <tr>
+                          <td colSpan="6" className="py-8 text-center text-slate-500 italic">
+                            No se encontraron registros que coincidan con los filtros aplicados.
+                          </td>
+                        </tr>
+                      );
+                    }
+
+                    return filtradas.map((visita) => (
+                      <tr key={visita.id} className="hover:bg-slate-800/40 transition-colors">
+                        {/* Estado */}
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          {visita.enLinea ? (
+                            <span className="inline-flex items-center gap-1.5 text-[10px] font-extrabold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/30">
+                              <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                              </span>
+                              En Línea
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-slate-500 font-semibold bg-slate-800 px-2 py-0.5 rounded-full">
+                              {formatearTiempoTranscurrido(visita.fechaCreacion)}
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Usuario */}
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          {visita.usuarioNombre ? (
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center font-bold text-[10px]">
+                                {visita.usuarioNombre.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <p className="font-bold text-slate-200">{visita.usuarioNombre}</p>
+                                <p className="text-[10px] text-slate-400">{visita.usuarioEmail}</p>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5 text-slate-400">
+                              <Users className="w-3.5 h-3.5 text-slate-500" />
+                              <span className="font-mono text-[11px]">Anónimo ({visita.sessionId ? visita.sessionId.slice(-6) : 'N/A'})</span>
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Ruta */}
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded-lg border border-sky-500/20 text-[11px]">
+                              {visita.ruta}
+                            </span>
+                            {visita.tituloPagina && visita.tituloPagina !== 'Informatics Store' && (
+                              <span className="text-[11px] text-slate-400 truncate max-w-[150px]">
+                                {visita.tituloPagina}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Dispositivo & Navegador */}
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          <div className="text-slate-300 flex items-center gap-1.5 text-[11px]">
+                            <span className="font-semibold">{visita.dispositivo}</span>
+                            <span className="text-slate-600">·</span>
+                            <span className="text-slate-400">{visita.sistemaOperativo}</span>
+                            <span className="text-slate-600">·</span>
+                            <span className="text-slate-400">{visita.navegador}</span>
+                          </div>
+                        </td>
+
+                        {/* Origen */}
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+                            visita.referrer?.toLowerCase().includes('whatsapp')
+                              ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+                              : visita.referrer?.toLowerCase().includes('google')
+                              ? 'bg-sky-500/10 text-sky-300 border-sky-500/30'
+                              : 'bg-slate-800 text-slate-400 border-slate-700'
+                          }`}>
+                            {visita.referrer || 'Directo'}
+                          </span>
+                        </td>
+
+                        {/* Hora */}
+                        <td className="py-3 px-4 text-right whitespace-nowrap text-slate-400 text-[11px]">
+                          {visita.fechaCreacion ? new Date(visita.fechaCreacion).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'N/A'}
+                        </td>
+                      </tr>
+                    ));
+                  })()}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 
