@@ -10,6 +10,7 @@ import BotonSoporteFloat from './components/BotonSoporteFloat';
 import ProtectedRoute from './components/ProtectedRoute';
 import FAQModal from './components/FAQModal';
 import VisitorTracker from './components/VisitorTracker';
+import SocialProofToast from './components/SocialProofToast';
 import { ShoppingCart, User, ShieldAlert, LogOut, Code, Menu, X, HelpCircle } from 'lucide-react';
 
 function Navigation({ onOpenFAQ }) {
@@ -256,6 +257,9 @@ function MainLayout() {
 
       {/* Botón flotante global de Soporte */}
       <BotonSoporteFloat />
+
+      {/* Social Proof en Vivo - Notificaciones de Compras Recientes */}
+      <SocialProofToast />
 
       {/* Footer */}
       <footer className="bg-slate-955 border-t border-slate-900/60 py-6 text-center text-xs text-slate-500 space-y-2">

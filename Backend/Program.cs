@@ -1578,6 +1578,42 @@ app.MapGet("/api/admin/visitas", async (ApplicationDbContext db) =>
             .Take(6)
             .ToListAsync();
 
+        // Detección de Carritos Abandonados (Visitas a /carrito en las últimas 24h sin orden posterior)
+        var hace24Horas = DateTime.UtcNow.AddHours(-24);
+        var visitasCarrito = await db.Visitas
+            .Where(v => v.FechaCreacion >= hace24Horas && v.Ruta.ToLower().Contains("/carrito"))
+            .OrderByDescending(v => v.FechaCreacion)
+            .ToListAsync();
+
+        var usuariosConOrden = await db.Ordenes
+            .Where(o => o.FechaCreacion >= hace24Horas)
+            .Select(o => o.UsuarioId)
+            .Distinct()
+            .ToListAsync();
+
+        var carritosAbandonados = visitasCarrito
+            .GroupBy(v => v.SessionId)
+            .Select(g =>
+            {
+                var primera = g.First();
+                bool completoOrden = primera.UsuarioId.HasValue && usuariosConOrden.Contains(primera.UsuarioId.Value);
+                return new
+                {
+                    sessionId = g.Key,
+                    usuarioId = primera.UsuarioId,
+                    usuarioNombre = primera.UsuarioNombre,
+                    usuarioEmail = primera.UsuarioEmail,
+                    dispositivo = primera.Dispositivo,
+                    navegador = primera.Navegador,
+                    fecha = primera.FechaCreacion,
+                    totalVisitas = g.Count(),
+                    completoOrden
+                };
+            })
+            .Where(c => !c.completoOrden)
+            .Take(20)
+            .ToList();
+
         return Results.Ok(new
         {
             totalVisitas,
@@ -1587,7 +1623,8 @@ app.MapGet("/api/admin/visitas", async (ApplicationDbContext db) =>
             ultimasVisitas,
             paginasMasVistas,
             porDispositivo,
-            porOrigen
+            porOrigen,
+            carritosAbandonados
         });
     }
     catch (Exception ex)
@@ -1597,6 +1634,85 @@ app.MapGet("/api/admin/visitas", async (ApplicationDbContext db) =>
         return Results.Json(new { mensaje = "Error al obtener analítica de visitas.", detalle = ex.Message }, statusCode: 500);
     }
 }).RequireAdminRole();
+
+// =========================================================================
+// 21. SOCIAL PROOF EN TIEMPO REAL - COMPRAS Y ACTIVIDAD RECIENTE
+// =========================================================================
+app.MapGet("/api/social-proof/recientes", async (ApplicationDbContext db) =>
+{
+    try
+    {
+        var ciudades = new[] { "Lima", "Arequipa", "Trujillo", "Cusco", "Chiclayo", "Piura", "Huancayo", "Tacna" };
+        var random = new Random();
+
+        var ultimasOrdenes = await db.Ordenes
+            .Include(o => o.Usuario)
+            .Include(o => o.Detalles)
+                .ThenInclude(d => d.Producto)
+            .Where(o => o.Estado == "Completada")
+            .OrderByDescending(o => o.FechaCreacion)
+            .Take(10)
+            .ToListAsync();
+
+        var lista = new List<object>();
+
+        foreach (var orden in ultimasOrdenes)
+        {
+            var detalle = orden.Detalles.FirstOrDefault();
+            if (detalle?.Producto == null) continue;
+
+            string nombreAnonimo = "Cliente";
+            if (!string.IsNullOrWhiteSpace(orden.Usuario?.Nombre))
+            {
+                var partes = orden.Usuario.Nombre.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (partes.Length > 1)
+                {
+                    nombreAnonimo = $"{partes[0]} {partes[1][0]}.";
+                }
+                else if (partes.Length == 1)
+                {
+                    nombreAnonimo = partes[0];
+                }
+            }
+
+            var ciudad = ciudades[random.Next(ciudades.Length)];
+            var diffMinutos = Math.Max(2, (int)(DateTime.UtcNow - orden.FechaCreacion).TotalMinutes);
+            string tiempoStr = diffMinutos < 60 ? $"Hace {diffMinutos} min" : (diffMinutos < 1440 ? $"Hace {diffMinutos / 60} h" : "Hace 1 día");
+
+            lista.Add(new
+            {
+                id = orden.Id,
+                cliente = nombreAnonimo,
+                ciudad = ciudad,
+                producto = detalle.Producto.Nombre,
+                categoria = detalle.Producto.Categoria,
+                imagenUrl = detalle.Producto.ImagenUrl,
+                tiempo = tiempoStr
+            });
+        }
+
+        // Si hay menos de 5 órdenes en BD (ej. en desarrollo o nueva tienda), complementar con actividad realista
+        if (lista.Count < 5)
+        {
+            var fallback = new[]
+            {
+                new { id = 991, cliente = "Carlos M.", ciudad = "Lima", producto = "Canva Pro (12 Meses)", categoria = "Software", imagenUrl = "canva.png", tiempo = "Hace 3 min" },
+                new { id = 992, cliente = "Lucía R.", ciudad = "Arequipa", producto = "ChatGPT Plus (1 Mes)", categoria = "IA", imagenUrl = "chatgpt.png", tiempo = "Hace 11 min" },
+                new { id = 993, cliente = "Alejandro V.", ciudad = "Trujillo", producto = "Spotify Premium (1 Mes)", categoria = "Streaming", imagenUrl = "spotify.png", tiempo = "Hace 19 min" },
+                new { id = 994, cliente = "Mariana S.", ciudad = "Cusco", producto = "Adobe Creative Cloud", categoria = "Software", imagenUrl = "adobe.png", tiempo = "Hace 32 min" },
+                new { id = 995, cliente = "David P.", ciudad = "Lima", producto = "Netflix Premium 4K", categoria = "Streaming", imagenUrl = "netflix.png", tiempo = "Hace 45 min" }
+            };
+            lista.AddRange(fallback.Take(5 - lista.Count));
+        }
+
+        return Results.Ok(lista);
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Error al obtener social proof: {ex.Message}");
+        return Results.Ok(new List<object>());
+    }
+});
 
 app.Run();
 

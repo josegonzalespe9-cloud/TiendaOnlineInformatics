@@ -7,7 +7,7 @@ import {
   Info, Eye, EyeOff, Download, Tag, Sparkles, Send, Share2, 
   FileSpreadsheet, DollarSign, Percent, Filter, ShieldCheck, Flame, 
   ArrowUpRight, Clock, MessageSquare, Copy, Check,
-  Activity, Radio, Smartphone, Monitor, Tablet, Globe
+  Activity, Radio, Smartphone, Monitor, Tablet, Globe, ShoppingCart
 } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import { API_URL } from '../services/api';
@@ -2994,6 +2994,80 @@ export default function AdminPanel() {
               </div>
             </div>
           </div>
+
+          {/* Recuperación de Carritos Abandonados */}
+          {visitasData?.carritosAbandonados && visitasData.carritosAbandonados.length > 0 && (
+            <div className="bg-slate-900 border border-amber-500/30 rounded-3xl p-6 shadow-xl space-y-4 relative overflow-hidden">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="bg-amber-500/15 text-amber-400 p-2.5 rounded-2xl border border-amber-500/30">
+                    <ShoppingCart className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-amber-300 flex items-center gap-2">
+                      Carritos Sin Finalizar ({visitasData.carritosAbandonados.length})
+                    </h3>
+                    <p className="text-xs text-slate-300 mt-0.5">
+                      Visitantes que exploraron el carrito en las últimas 24 horas sin completar su pedido.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="text-xs text-slate-400">
+                  <span className="text-amber-400 font-bold">Oportunidad de Retargeting:</span> Ofrece un cupón por WhatsApp.
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
+                {visitasData.carritosAbandonados.slice(0, 6).map((cart, idx) => {
+                  const tieneCliente = !!cart.usuarioNombre;
+                  const mensajeWhatsapp = encodeURIComponent(
+                    `¡Hola ${cart.usuarioNombre || 'amigo(a)'}! Notamos que estuviste revisando tu carrito en Informatics Store.\n\n` +
+                    `Queremos que disfrutes tu software favorito, por eso te dejamos este cupón de descuento especial: *DESCUENTO10*.\n\n` +
+                    `Completa tu pedido aquí: https://informatics.pe/carrito\n¿Tienes alguna duda con el pago?`
+                  );
+
+                  return (
+                    <div key={idx} className="bg-slate-955 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between gap-3 hover:border-amber-500/40 transition-colors">
+                      <div>
+                        <div className="flex items-center justify-between text-xs mb-1.5">
+                          <span className="font-bold text-slate-200">
+                            {tieneCliente ? cart.usuarioNombre : `Anónimo (${cart.sessionId ? cart.sessionId.slice(-6) : 'N/A'})`}
+                          </span>
+                          <span className="text-[10px] text-amber-400 font-semibold bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                            {formatearTiempoTranscurrido(cart.fecha)}
+                          </span>
+                        </div>
+                        {cart.usuarioEmail && (
+                          <p className="text-[11px] text-slate-400 truncate mb-1">{cart.usuarioEmail}</p>
+                        )}
+                        <p className="text-[10px] text-slate-500 flex items-center gap-1">
+                          <Eye className="w-3 h-3" />
+                          {cart.totalVisitas} {cart.totalVisitas === 1 ? 'visita al carrito' : 'visitas al carrito'} · {cart.dispositivo}
+                        </p>
+                      </div>
+
+                      {tieneCliente ? (
+                        <a
+                          href={`https://api.whatsapp.com/send?text=${mensajeWhatsapp}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-full bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-400 text-xs font-bold py-1.5 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                        >
+                          <Send className="w-3.5 h-3.5" />
+                          Recuperar por WhatsApp
+                        </a>
+                      ) : (
+                        <span className="text-[10px] text-slate-500 italic text-center py-1">
+                          Visitante no autenticado
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Registro de Actividad en Vivo (Feed de Últimas Visitas) */}
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
