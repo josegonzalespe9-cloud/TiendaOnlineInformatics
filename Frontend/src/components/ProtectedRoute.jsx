@@ -25,6 +25,14 @@ export default function ProtectedRoute({ children }) {
     );
 
     const payload = JSON.parse(jsonPayload);
+
+    // Validar expiración del token (si expiró, limpiar sesión y redirigir a login)
+    if (payload.exp && Date.now() >= payload.exp * 1000) {
+      localStorage.removeItem('informatics_token');
+      localStorage.removeItem('informatics_user');
+      return <Navigate to="/login" replace />;
+    }
+
     const role = payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] || payload["rol"] || payload["role"];
 
     if (role !== 'Admin') {

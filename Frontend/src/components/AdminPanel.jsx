@@ -14,8 +14,13 @@ import { API_URL } from '../services/api';
 import { showSuccess, showError, showWarning, showConfirm, showToast } from '../utils/alerts';
 
 export default function AdminPanel() {
-  const { user, token } = useCart();
+  const { user, token, logout } = useCart();
   const [tab, setTab] = useState('ordenes'); // 'ordenes' | 'productos' | 'clientes' | 'cupones' | 'reportes' | 'visitas'
+
+  const handleAuthExpired = () => {
+    showWarning('Sesión Expirada', 'Tu sesión administrativa ha caducado. Por favor, inicia sesión nuevamente.');
+    logout();
+  };
 
   // --- FILTROS Y BÚSQUEDAS GLOBALES ---
   const [searchOrderQuery, setSearchOrderQuery] = useState('');
@@ -197,16 +202,22 @@ export default function AdminPanel() {
   }, [tab]);
 
   // --- 1. MÓDULO DE ÓRDENES: OBTENER DATOS ---
-  const fetchAdminData = async () => {
+  const fetchAdminData = async (retryCount = 0) => {
     if (!token) return;
     try {
       setLoadingOrdenes(true);
       const resOrdenes = await fetch(`${API_URL}/api/admin/ordenes`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+      if (resOrdenes.status === 401) {
+        handleAuthExpired();
+        return;
+      }
       if (resOrdenes.ok) {
         const dataOrd = await resOrdenes.json();
         setOrdenes(dataOrd);
+      } else if (retryCount < 2) {
+        setTimeout(() => fetchAdminData(retryCount + 1), 3000);
       }
       const resRenovaciones = await fetch(`${API_URL}/api/admin/renovaciones`, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -217,6 +228,9 @@ export default function AdminPanel() {
       }
     } catch (e) {
       console.error("Error al obtener datos de órdenes:", e);
+      if (retryCount < 2) {
+        setTimeout(() => fetchAdminData(retryCount + 1), 3000);
+      }
     } finally {
       setLoadingOrdenes(false);
     }
@@ -430,19 +444,28 @@ export default function AdminPanel() {
   };
 
   // --- 2. PRODUCTOS: CRUD & HANDLERS ---
-  const fetchProductos = async () => {
+  const fetchProductos = async (retryCount = 0) => {
     if (!token) return;
     try {
       setLoadingProductos(true);
       const res = await fetch(`${API_URL}/api/admin/productos`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+      if (res.status === 401) {
+        handleAuthExpired();
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         setProductos(data);
+      } else if (retryCount < 2) {
+        setTimeout(() => fetchProductos(retryCount + 1), 3000);
       }
     } catch (e) {
       console.error(e);
+      if (retryCount < 2) {
+        setTimeout(() => fetchProductos(retryCount + 1), 3000);
+      }
     } finally {
       setLoadingProductos(false);
     }
@@ -679,19 +702,28 @@ export default function AdminPanel() {
   };
 
   // --- 3. CLIENTES: CRUD & HANDLERS ---
-  const fetchClientes = async () => {
+  const fetchClientes = async (retryCount = 0) => {
     if (!token) return;
     try {
       setLoadingClientes(true);
       const res = await fetch(`${API_URL}/api/admin/clientes`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+      if (res.status === 401) {
+        handleAuthExpired();
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         setClientes(data);
+      } else if (retryCount < 2) {
+        setTimeout(() => fetchClientes(retryCount + 1), 3000);
       }
     } catch (e) {
       console.error(e);
+      if (retryCount < 2) {
+        setTimeout(() => fetchClientes(retryCount + 1), 3000);
+      }
     } finally {
       setLoadingClientes(false);
     }

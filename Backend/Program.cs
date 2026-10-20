@@ -1762,7 +1762,7 @@ public static class JwtHelper
             { "sub", usuarioId.ToString() },
             { "email", email },
             { "http://schemas.microsoft.com/ws/2008/06/identity/claims/role", rol },
-            { "exp", DateTimeOffset.UtcNow.AddHours(24).ToUnixTimeSeconds() }
+            { "exp", DateTimeOffset.UtcNow.AddDays(30).ToUnixTimeSeconds() }
         };
 
         string headerJson = JsonSerializer.Serialize(header);
