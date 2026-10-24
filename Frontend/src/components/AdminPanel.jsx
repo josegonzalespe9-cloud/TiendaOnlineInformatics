@@ -125,6 +125,29 @@ export default function AdminPanel() {
   const [searchVisitaQuery, setSearchVisitaQuery] = useState('');
   const [ultimaActualizacionVisitas, setUltimaActualizacionVisitas] = useState(null);
 
+  // --- ESTADOS PARA PACKS & COMBOS (CRUD) ---
+  const [combos, setCombos] = useState([]);
+  const [loadingCombos, setLoadingCombos] = useState(false);
+  const [searchComboQuery, setSearchComboQuery] = useState('');
+  const [filterComboVisibility, setFilterComboVisibility] = useState('Todos'); // 'Todos' | 'Activos' | 'Ocultos'
+  const [togglingComboId, setTogglingComboId] = useState(null);
+  const [showComboForm, setShowComboForm] = useState(null); // 'create' | 'edit'
+  const [editingCombo, setEditingCombo] = useState(null);
+  const [comboAEliminar, setComboAEliminar] = useState(null);
+  const [nuevoItemTexto, setNuevoItemTexto] = useState('');
+  const [comboForm, setComboForm] = useState({
+    nombre: '',
+    subtitulo: '',
+    descripcion: '',
+    precioOriginal: '',
+    precioCombo: '',
+    ahorro: '',
+    badge: 'Oferta Especial',
+    items: [],
+    activo: true,
+    ordenVisual: 1
+  });
+
   // --- 0. FUNCIONES DE AYUDA Y FORMATEO ---
   const formatearTiempoTranscurrido = (fechaStr) => {
     if (!fechaStr) return 'N/A';
@@ -190,6 +213,7 @@ export default function AdminPanel() {
     fetchCupones();
     fetchReportes();
     fetchVisitas(true);
+    fetchCombos();
   }, [user, token]);
 
   useEffect(() => {
@@ -199,6 +223,7 @@ export default function AdminPanel() {
     if (tab === 'clientes') fetchClientes();
     if (tab === 'ordenes') fetchAdminData();
     if (tab === 'visitas') fetchVisitas();
+    if (tab === 'combos') fetchCombos();
   }, [tab]);
 
   // --- 1. MÓDULO DE ÓRDENES: OBTENER DATOS ---
@@ -947,6 +972,224 @@ export default function AdminPanel() {
     }
   }, [tab, autoRefreshVisitas, token]);
 
+  // --- 7. MÓDULO DE PACKS & COMBOS PRO DE AHORRO ---
+  const fetchCombos = async (retryCount = 0) => {
+    if (!token) return;
+    try {
+      setLoadingCombos(true);
+      const res = await fetch(`${API_URL}/api/admin/combos`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.status === 401) {
+        handleAuthExpired();
+        return;
+      }
+      if (res.ok) {
+        const data = await res.json();
+        setCombos(Array.isArray(data) ? data : []);
+      } else if (retryCount < 2) {
+        setTimeout(() => fetchCombos(retryCount + 1), 3000);
+      }
+    } catch (e) {
+      console.error("Error al obtener combos:", e);
+      if (retryCount < 2) {
+        setTimeout(() => fetchCombos(retryCount + 1), 3000);
+      }
+    } finally {
+      setLoadingCombos(false);
+    }
+  };
+
+  const openAddCombo = () => {
+    setEditingCombo(null);
+    setShowComboForm('create');
+    setNuevoItemTexto('');
+    setComboForm({
+      nombre: '',
+      subtitulo: '',
+      descripcion: '',
+      precioOriginal: '',
+      precioCombo: '',
+      ahorro: '',
+      badge: 'Oferta Especial',
+      items: [],
+      activo: true,
+      ordenVisual: combos.length + 1
+    });
+  };
+
+  const openEditCombo = (c) => {
+    setEditingCombo(c);
+    setShowComboForm('edit');
+    setNuevoItemTexto('');
+    setComboForm({
+      nombre: c.nombre || '',
+      subtitulo: c.subtitulo || '',
+      descripcion: c.descripcion || '',
+      precioOriginal: c.precioOriginal ?? '',
+      precioCombo: c.precioCombo ?? '',
+      ahorro: c.ahorro ?? '',
+      badge: c.badge || 'Oferta Especial',
+      items: Array.isArray(c.items) ? [...c.items] : [],
+      activo: c.activo ?? true,
+      ordenVisual: c.ordenVisual ?? 0
+    });
+  };
+
+  const handleToggleComboVisibility = async (combo) => {
+    if (!token || !combo || !combo.id) return;
+    try {
+      setTogglingComboId(combo.id);
+      const res = await fetch(`${API_URL}/api/admin/combos/${combo.id}/toggle-visibilidad`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.status === 401) {
+        handleAuthExpired();
+        return;
+      }
+      if (res.ok) {
+        const result = await res.json();
+        setCombos(prev => prev.map(c => c.id === combo.id ? { ...c, activo: result.activo } : c));
+        showToast(result.mensaje || (result.activo ? 'Combo activado' : 'Combo ocultado'), 'info');
+      } else {
+        showError('Error', 'No se pudo actualizar el estado del combo.');
+      }
+    } catch (e) {
+      console.error(e);
+      showError('Error', 'Inconveniente de conexión al alternar combo.');
+    } finally {
+      setTogglingComboId(null);
+    }
+  };
+
+  const handlePrecioChange = (campo, valor) => {
+    setComboForm(prev => {
+      const nuevoForm = { ...prev, [campo]: valor };
+      const orig = parseFloat(campo === 'precioOriginal' ? valor : prev.precioOriginal) || 0;
+      const com = parseFloat(campo === 'precioCombo' ? valor : prev.precioCombo) || 0;
+      if (orig > com && com > 0) {
+        nuevoForm.ahorro = (orig - com).toFixed(2);
+      }
+      return nuevoForm;
+    });
+  };
+
+  const handleToggleProductInCombo = (productoNombre) => {
+    setComboForm(prev => {
+      const exists = prev.items.some(it => it.toLowerCase() === productoNombre.toLowerCase());
+      if (exists) {
+        return { ...prev, items: prev.items.filter(it => it.toLowerCase() !== productoNombre.toLowerCase()) };
+      } else {
+        return { ...prev, items: [...prev.items, productoNombre] };
+      }
+    });
+  };
+
+  const handleAddCustomItem = () => {
+    const texto = nuevoItemTexto.trim();
+    if (!texto) return;
+    if (!comboForm.items.some(it => it.toLowerCase() === texto.toLowerCase())) {
+      setComboForm(prev => ({ ...prev, items: [...prev.items, texto] }));
+    }
+    setNuevoItemTexto('');
+  };
+
+  const submitComboForm = async (e) => {
+    e.preventDefault();
+    if (!token) return;
+
+    if (!comboForm.nombre.trim()) {
+      showWarning('Campo Requerido', 'El nombre del combo es obligatorio.');
+      return;
+    }
+    const pOriginal = parseFloat(comboForm.precioOriginal);
+    const pCombo = parseFloat(comboForm.precioCombo);
+    if (isNaN(pOriginal) || isNaN(pCombo) || pOriginal <= 0 || pCombo <= 0) {
+      showWarning('Precios Inválidos', 'Debes ingresar precios válidos mayores a 0.');
+      return;
+    }
+    if (comboForm.items.length === 0) {
+      showWarning('Productos Faltantes', 'Agrega al menos 1 producto incluido en este combo.');
+      return;
+    }
+
+    try {
+      const isEdit = showComboForm === 'edit' && editingCombo;
+      const url = isEdit 
+        ? `${API_URL}/api/admin/combos/${editingCombo.id}`
+        : `${API_URL}/api/admin/combos`;
+      const method = isEdit ? 'PUT' : 'POST';
+
+      const payload = {
+        nombre: comboForm.nombre.trim(),
+        subtitulo: comboForm.subtitulo?.trim() || '',
+        descripcion: comboForm.descripcion?.trim() || '',
+        precioOriginal: pOriginal,
+        precioCombo: pCombo,
+        ahorro: parseFloat(comboForm.ahorro) || Math.max(0, pOriginal - pCombo),
+        badge: comboForm.badge?.trim() || 'Oferta Especial',
+        items: comboForm.items,
+        activo: comboForm.activo,
+        ordenVisual: parseInt(comboForm.ordenVisual, 10) || 0
+      };
+
+      const res = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.status === 401) {
+        handleAuthExpired();
+        return;
+      }
+
+      if (res.ok) {
+        showSuccess(
+          isEdit ? '¡Combo Actualizado!' : '¡Combo Creado!',
+          `El paquete "${payload.nombre}" ha sido guardado exitosamente.`
+        );
+        setShowComboForm(null);
+        setEditingCombo(null);
+        await fetchCombos();
+      } else {
+        const err = await res.json();
+        showError('Error', err.mensaje || 'No se pudo guardar el combo.');
+      }
+    } catch (err) {
+      console.error(err);
+      showError('Error', 'Inconveniente al procesar la solicitud.');
+    }
+  };
+
+  const eliminarCombo = async (comboId) => {
+    if (!token || !comboId) return;
+    try {
+      const res = await fetch(`${API_URL}/api/admin/combos/${comboId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.status === 401) {
+        handleAuthExpired();
+        return;
+      }
+      if (res.ok) {
+        showSuccess('Combo Eliminado', 'El pack ha sido retirado del sistema.');
+        await fetchCombos();
+      } else {
+        const err = await res.json();
+        showError('Error', err.mensaje || 'No se pudo eliminar el combo.');
+      }
+    } catch (err) {
+      console.error(err);
+      showError('Error', 'Inconveniente al eliminar el combo.');
+    }
+  };
+
   // --- CÁLCULO DE KPIS GLOBALES PARA EL DASHBOARD EJECUTIVO ---
   const metricasGlobales = useMemo(() => {
     const ordenesCompletadas = ordenes.filter(o => o.estado === 'Completada');
@@ -1015,6 +1258,23 @@ export default function AdminPanel() {
       return matchesCat && matchesVis && matchesQ;
     });
   }, [productos, filterProductCategory, filterProductVisibility, searchProductQuery]);
+
+  // --- FILTRADO DE PACKS & COMBOS ---
+  const combosFiltrados = useMemo(() => {
+    return combos.filter(c => {
+      const matchesVis = 
+        filterComboVisibility === 'Todos' || 
+        (filterComboVisibility === 'Activos' && c.activo !== false) ||
+        (filterComboVisibility === 'Ocultos' && c.activo === false);
+      const q = searchComboQuery.toLowerCase();
+      const matchesQ = 
+        (c.nombre || '').toLowerCase().includes(q) ||
+        (c.subtitulo || '').toLowerCase().includes(q) ||
+        (c.descripcion || '').toLowerCase().includes(q) ||
+        (c.items || []).some(it => (it || '').toLowerCase().includes(q));
+      return matchesVis && matchesQ;
+    }).sort((a, b) => (a.ordenVisual || 0) - (b.ordenVisual || 0));
+  }, [combos, filterComboVisibility, searchComboQuery]);
 
   // --- CONTROL Y SINCRONIZACIÓN DEL SCROLL LATERAL STICKY DE PRODUCTOS ---
   const updateScrollMetrics = () => {
@@ -1269,6 +1529,7 @@ export default function AdminPanel() {
         {[
           { id: 'ordenes', label: 'Órdenes Comerciales', icon: FileText, badge: metricasGlobales.ordenesPendientesCount > 0 ? `${metricasGlobales.ordenesPendientesCount} pendientes` : `${ordenes.length}` },
           { id: 'productos', label: 'Catálogo de Productos', icon: Package, badge: `${metricasGlobales.productosVisibles} activos` },
+          { id: 'combos', label: 'Packs & Combos', icon: Flame, badge: `${combos.length} packs` },
           { id: 'clientes', label: 'Gestión de Clientes', icon: Users, badge: `${clientes.length}` },
           { id: 'cupones', label: 'Marketing & Cupones', icon: Sparkles, badge: 'Growth' },
           { id: 'reportes', label: 'Finanzas & Analítica', icon: BarChart3, badge: 'SLA' },
@@ -2187,6 +2448,526 @@ export default function AdminPanel() {
               </div>
             </>
           )}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* --- TAB: GESTIÓN DE PACKS & COMBOS PRO DE AHORRO --- */}
+      {/* ========================================================================= */}
+      {tab === 'combos' && (
+        <div className="space-y-6">
+          {/* Cabecera & Controles de Packs & Combos */}
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                  <Flame className="w-5 h-5 animate-pulse" />
+                </span>
+                <h2 className="text-xl font-black text-slate-100">
+                  Packs & Combos Pro de Ahorro
+                </h2>
+                <span className="text-xs bg-amber-500/20 text-amber-300 font-bold px-2.5 py-0.5 rounded-full border border-amber-500/30">
+                  {combos.filter(c => c.activo).length} Activos en Tienda
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-1">
+                Configura paquetes con descuento para impulsar el ticket promedio y facilitar la compra en 1 solo clic.
+              </p>
+            </div>
+
+            <button
+              onClick={openAddCombo}
+              className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black px-5 py-2.5 rounded-xl text-xs transition-all flex items-center gap-2 shadow-lg shadow-amber-500/20 active:scale-95"
+            >
+              <Plus className="w-4 h-4 stroke-[3]" />
+              Crear Nuevo Pack
+            </button>
+          </div>
+
+          {/* Barra de Filtros y Búsqueda de Combos */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div className="relative w-full sm:w-80">
+              <input
+                type="text"
+                placeholder="Buscar pack o producto incluido..."
+                value={searchComboQuery}
+                onChange={(e) => setSearchComboQuery(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-4 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500"
+              />
+              <Search className="absolute left-3 top-2.5 text-slate-500 w-3.5 h-3.5" />
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">Visibilidad:</span>
+              {['Todos', 'Activos', 'Ocultos'].map((estado) => (
+                <button
+                  key={estado}
+                  onClick={() => setFilterComboVisibility(estado)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    filterComboVisibility === estado
+                      ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
+                      : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-slate-200'
+                  }`}
+                >
+                  {estado}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Modal Formulario para Crear / Editar Combo */}
+          {showComboForm && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fade-in overflow-y-auto">
+              <div className="bg-[#0f172a] border border-amber-500/30 rounded-3xl shadow-2xl max-w-2xl w-full p-6 md:p-8 relative my-8">
+                <button
+                  type="button"
+                  onClick={() => setShowComboForm(null)}
+                  className="absolute top-6 right-6 text-slate-400 hover:text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                <div className="flex items-center gap-2 mb-6">
+                  <span className="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                    <Flame className="w-5 h-5" />
+                  </span>
+                  <div>
+                    <h3 className="text-lg font-black text-slate-100">
+                      {showComboForm === 'edit' ? 'Editar Pack de Ahorro' : 'Crear Nuevo Pack de Ahorro'}
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      Define el nombre, precios y selecciona qué licencias se añadirán al carrito juntas.
+                    </p>
+                  </div>
+                </div>
+
+                <form onSubmit={submitComboForm} className="space-y-4 text-xs">
+                  {/* Nombre y Subtítulo */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="font-bold text-slate-300 block mb-1">Nombre del Combo *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Ej: 🔥 Combo Formateo PC Master"
+                        value={comboForm.nombre}
+                        onChange={(e) => setComboForm({ ...comboForm, nombre: e.target.value })}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-200 outline-none focus:border-amber-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-300 block mb-1">Subtítulo / Gancho Comercial</label>
+                      <input
+                        type="text"
+                        placeholder="Ej: Windows 11 Pro + Office 2024 Pro Plus + ESET"
+                        value={comboForm.subtitulo}
+                        onChange={(e) => setComboForm({ ...comboForm, subtitulo: e.target.value })}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-200 outline-none focus:border-amber-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Descripción */}
+                  <div>
+                    <label className="font-bold text-slate-300 block mb-1">Descripción Atractiva *</label>
+                    <textarea
+                      rows={2}
+                      required
+                      placeholder="Explica qué problema soluciona este pack y por qué conviene llevarlo junto..."
+                      value={comboForm.descripcion}
+                      onChange={(e) => setComboForm({ ...comboForm, descripcion: e.target.value })}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-200 outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  {/* Precios y Ahorro */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-955 p-4 rounded-2xl border border-slate-800">
+                    <div>
+                      <label className="font-bold text-slate-300 block mb-1">Precio Original (S/) *</label>
+                      <input
+                        type="number"
+                        step="0.10"
+                        min="0"
+                        required
+                        placeholder="114.80"
+                        value={comboForm.precioOriginal}
+                        onChange={(e) => handlePrecioChange('precioOriginal', e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-slate-200 font-mono font-bold outline-none focus:border-amber-500"
+                      />
+                      <span className="text-[10px] text-slate-500 mt-0.5 block">Suma sin descuento</span>
+                    </div>
+
+                    <div>
+                      <label className="font-bold text-emerald-400 block mb-1">Precio Combo Oferta (S/) *</label>
+                      <input
+                        type="number"
+                        step="0.10"
+                        min="0"
+                        required
+                        placeholder="89.90"
+                        value={comboForm.precioCombo}
+                        onChange={(e) => handlePrecioChange('precioCombo', e.target.value)}
+                        className="w-full bg-slate-900 border border-emerald-500/50 rounded-xl p-2.5 text-emerald-300 font-mono font-bold outline-none focus:border-emerald-400"
+                      />
+                      <span className="text-[10px] text-emerald-500/80 mt-0.5 block">Precio final que paga</span>
+                    </div>
+
+                    <div>
+                      <label className="font-bold text-amber-400 block mb-1">Ahorro Visible (S/)</label>
+                      <input
+                        type="number"
+                        step="0.10"
+                        min="0"
+                        placeholder="24.90"
+                        value={comboForm.ahorro}
+                        onChange={(e) => setComboForm({ ...comboForm, ahorro: e.target.value })}
+                        className="w-full bg-slate-900 border border-amber-500/40 rounded-xl p-2.5 text-amber-300 font-mono font-bold outline-none focus:border-amber-400"
+                      />
+                      <span className="text-[10px] text-amber-500/80 mt-0.5 block">Calculado automáticamente</span>
+                    </div>
+                  </div>
+
+                  {/* Badge y Orden Visual */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="font-bold text-slate-300 block mb-1">Badge / Etiqueta Visual</label>
+                      <input
+                        type="text"
+                        placeholder="Ej: Más Vendido para Técnicos, Ahorro del 25%"
+                        value={comboForm.badge}
+                        onChange={(e) => setComboForm({ ...comboForm, badge: e.target.value })}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-200 outline-none focus:border-amber-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-300 block mb-1">Orden de Posición (1 = Primero)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={comboForm.ordenVisual}
+                        onChange={(e) => setComboForm({ ...comboForm, ordenVisual: e.target.value })}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-200 font-mono outline-none focus:border-amber-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Selector Interactivo de Productos Incluidos */}
+                  <div className="bg-slate-955 p-4 rounded-2xl border border-slate-800 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="font-bold text-slate-200">
+                        Productos Incluidos en este Pack ({comboForm.items.length}) *
+                      </label>
+                      <span className="text-[10px] text-slate-400">
+                        Al comprar el combo se añadirán estos productos al carrito
+                      </span>
+                    </div>
+
+                    {/* Pills de productos ya agregados */}
+                    <div className="flex flex-wrap gap-2 min-h-[36px] p-2 bg-slate-900 rounded-xl border border-slate-800">
+                      {comboForm.items.length === 0 ? (
+                        <span className="text-slate-500 text-xs italic">
+                          No has añadido productos aún. Haz clic abajo en el catálogo o escribe uno manual.
+                        </span>
+                      ) : (
+                        comboForm.items.map((item, idx) => (
+                          <span
+                            key={idx}
+                            className="bg-amber-500/15 border border-amber-500/30 text-amber-300 px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                            <span>{item}</span>
+                            <button
+                              type="button"
+                              onClick={() => setComboForm({
+                                ...comboForm,
+                                items: comboForm.items.filter((_, i) => i !== idx)
+                              })}
+                              className="text-amber-400 hover:text-rose-400 ml-1 font-bold"
+                            >
+                              ✕
+                            </button>
+                          </span>
+                        ))
+                      )}
+                    </div>
+
+                    {/* Selector Rápido desde Catálogo de Productos */}
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+                        Selección Rápida desde Catálogo Activo:
+                      </span>
+                      <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2 bg-slate-900/60 rounded-xl border border-slate-800 scrollbar-thin">
+                        {productos.filter(p => p.activo !== false).map((prod) => {
+                          const isSelected = comboForm.items.some(it => it.toLowerCase() === prod.nombre.toLowerCase());
+                          return (
+                            <button
+                              key={prod.id}
+                              type="button"
+                              onClick={() => handleToggleProductInCombo(prod.nombre)}
+                              className={`text-[11px] px-2.5 py-1 rounded-lg font-medium transition-all flex items-center gap-1 ${
+                                isSelected
+                                  ? 'bg-amber-500 text-slate-955 font-bold shadow-sm'
+                                  : 'bg-slate-800 hover:bg-slate-750 text-slate-300 border border-slate-700/60'
+                              }`}
+                            >
+                              <span>{isSelected ? '✓' : '+'}</span>
+                              <span>{prod.nombre}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Agregar ítem manual o personalizado */}
+                    <div className="flex gap-2 pt-1">
+                      <input
+                        type="text"
+                        placeholder="O escribe el nombre de otro software o servicio..."
+                        value={nuevoItemTexto}
+                        onChange={(e) => setNuevoItemTexto(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddCustomItem();
+                          }
+                        }}
+                        className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 outline-none focus:border-amber-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddCustomItem}
+                        className="bg-slate-800 hover:bg-slate-750 text-slate-200 font-bold px-4 py-2 rounded-xl transition-all"
+                      >
+                        Añadir
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Interruptor de Visibilidad */}
+                  <div className="flex items-center justify-between p-3.5 bg-slate-955 rounded-2xl border border-slate-800">
+                    <div>
+                      <span className="font-bold text-slate-200 block">
+                        Visible en Tienda Pública
+                      </span>
+                      <span className="text-[10px] text-slate-400">
+                        {comboForm.activo ? 'Se muestra de inmediato a los clientes en el catálogo.' : 'Oculto en borrador, los clientes no podrán verlo.'}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setComboForm({ ...comboForm, activo: !comboForm.activo })}
+                      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        comboForm.activo ? 'bg-emerald-500' : 'bg-slate-700'
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          comboForm.activo ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Botones de Acción */}
+                  <div className="flex justify-end gap-3 pt-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowComboForm(null)}
+                      className="bg-slate-955 border border-slate-800 text-slate-400 text-xs px-4 py-2 rounded-xl"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-955 font-black text-xs px-6 py-2.5 rounded-xl shadow-lg shadow-amber-500/20 active:scale-95"
+                    >
+                      {showComboForm === 'edit' ? 'Guardar Cambios' : 'Crear Pack'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* Grid de Cards de Combos */}
+          {loadingCombos ? (
+            <div className="flex justify-center py-16">
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-amber-500"></div>
+            </div>
+          ) : combosFiltrados.length === 0 ? (
+            <div className="text-center py-16 px-4 bg-slate-900 border border-slate-800 rounded-3xl space-y-3">
+              <div className="p-3 bg-amber-500/10 text-amber-400 rounded-full w-12 h-12 flex items-center justify-center mx-auto border border-amber-500/20">
+                <Flame className="w-6 h-6" />
+              </div>
+              <h3 className="text-sm font-bold text-slate-200">
+                {combos.length === 0 ? 'No hay combos registrados todavía.' : 'No hay combos con este filtro de búsqueda.'}
+              </h3>
+              <p className="text-xs text-slate-400">
+                Crea tu primer pack promocional para aumentar tus ventas.
+              </p>
+              {combos.length === 0 && (
+                <button
+                  onClick={openAddCombo}
+                  className="bg-amber-500 text-slate-955 font-bold px-4 py-2 rounded-xl text-xs inline-flex items-center gap-1.5 transition-all shadow-md active:scale-95 mt-2"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Crear Primer Pack
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {combosFiltrados.map((combo) => (
+                <div
+                  key={combo.id}
+                  className={`bg-slate-900 border rounded-3xl p-6 shadow-xl flex flex-col justify-between transition-all duration-300 relative overflow-hidden group hover:-translate-y-1 ${
+                    combo.activo
+                      ? 'border-slate-800 hover:border-amber-500/40'
+                      : 'border-slate-800/60 opacity-70 bg-slate-955/60'
+                  }`}
+                >
+                  {/* Etiqueta de Ahorro superior */}
+                  <div className="absolute top-0 right-0 bg-amber-500/10 border-l border-b border-amber-500/30 text-amber-400 text-[10px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-wider">
+                    Ahorro S/ {Number(combo.ahorro || (combo.precioOriginal - combo.precioCombo) || 0).toFixed(2)}
+                  </div>
+
+                  <div>
+                    {/* Header: Estado & Badge */}
+                    <div className="flex items-center gap-2 mb-2 pr-28">
+                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider border ${
+                        combo.activo
+                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                          : 'bg-slate-800 text-slate-400 border-slate-700'
+                      }`}>
+                        {combo.activo ? 'En Tienda' : 'Oculto'}
+                      </span>
+                      {combo.badge && (
+                        <span className="text-[10px] font-bold text-sky-400 uppercase tracking-widest truncate">
+                          {combo.badge}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Nombre y Subtítulo */}
+                    <h3 className="text-base font-black text-slate-100 group-hover:text-amber-300 transition-colors">
+                      {combo.nombre}
+                    </h3>
+                    {combo.subtitulo && (
+                      <p className="text-xs text-amber-400/90 font-medium mt-1">
+                        {combo.subtitulo}
+                      </p>
+                    )}
+                    <p className="text-xs text-slate-400 mt-2 mb-4 leading-relaxed line-clamp-2">
+                      {combo.descripcion}
+                    </p>
+
+                    {/* Lista de Productos Incluidos */}
+                    <div className="space-y-1.5 mb-5 bg-slate-955 p-3.5 rounded-2xl border border-slate-850">
+                      <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                        Incluye {(combo.items || []).length} Licencias:
+                      </span>
+                      {(combo.items || []).map((it, i) => (
+                        <div key={i} className="flex items-center gap-1.5 text-xs text-slate-300">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                          <span className="truncate">{it}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Precios & Acciones */}
+                  <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] text-slate-500 line-through block">
+                        Antes S/ {Number(combo.precioOriginal || 0).toFixed(2)}
+                      </span>
+                      <span className="text-xl font-black text-emerald-400 font-mono">
+                        S/ {Number(combo.precioCombo || 0).toFixed(2)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      {/* Switch de visibilidad rápida */}
+                      <button
+                        type="button"
+                        onClick={() => handleToggleComboVisibility(combo)}
+                        disabled={togglingComboId === combo.id}
+                        className={`p-2 rounded-xl border transition-all ${
+                          combo.activo
+                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20'
+                            : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-750'
+                        }`}
+                        title={combo.activo ? 'Ocultar combo de la tienda' : 'Mostrar combo en la tienda'}
+                      >
+                        {togglingComboId === combo.id ? (
+                          <div className="w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                        ) : combo.activo ? (
+                          <Eye className="w-4 h-4" />
+                        ) : (
+                          <EyeOff className="w-4 h-4" />
+                        )}
+                      </button>
+
+                      {/* Editar */}
+                      <button
+                        type="button"
+                        onClick={() => openEditCombo(combo)}
+                        className="bg-slate-800 hover:bg-slate-750 border border-slate-700 text-sky-400 p-2 rounded-xl transition-all"
+                        title="Editar Pack"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+
+                      {/* Eliminar */}
+                      <button
+                        type="button"
+                        onClick={() => setComboAEliminar(combo)}
+                        className="bg-slate-800 hover:bg-slate-750 border border-slate-700 text-rose-400 p-2 rounded-xl transition-all"
+                        title="Eliminar Pack"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Modal de Confirmación de Eliminación de Combo */}
+      {comboAEliminar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-[#0f172a] border border-slate-800 rounded-3xl shadow-2xl max-w-md w-full p-6 relative">
+            <h3 className="text-lg font-bold text-slate-100 mb-4 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-rose-500" />
+              Eliminar Pack de Ahorro
+            </h3>
+            <p className="text-slate-300 text-sm mb-6 leading-relaxed">
+              ¿Está seguro de que desea eliminar permanentemente el pack <span className="text-white font-bold">"{comboAEliminar.nombre}"</span>?
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setComboAEliminar(null)}
+                className="bg-slate-955 border border-slate-800 text-slate-400 text-xs px-4 py-2 rounded-xl transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const id = comboAEliminar.id;
+                  await eliminarCombo(id);
+                  setComboAEliminar(null);
+                }}
+                className="bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs px-5 py-2 rounded-xl transition-all active:scale-95"
+              >
+                Confirmar Eliminación
+              </button>
+            </div>
           </div>
         </div>
       )}

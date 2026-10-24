@@ -243,6 +243,97 @@ using (var scope = app.Services.CreateScope())
             Console.WriteLine($"Advertencia al verificar tabla Visitas: {ex.Message}");
         }
 
+        // Verificar si la tabla Combos existe para Packs & Combos Pro de Ahorro, y si no, crearla
+        try
+        {
+            db.Database.ExecuteSqlRaw(@"
+                CREATE TABLE IF NOT EXISTS ""Combos"" (
+                    ""Id"" SERIAL PRIMARY KEY,
+                    ""Nombre"" VARCHAR(150) NOT NULL,
+                    ""Subtitulo"" VARCHAR(255) DEFAULT '',
+                    ""Descripcion"" VARCHAR(600) DEFAULT '',
+                    ""PrecioOriginal"" decimal(18,2) NOT NULL DEFAULT 0.00,
+                    ""PrecioCombo"" decimal(18,2) NOT NULL DEFAULT 0.00,
+                    ""Ahorro"" decimal(18,2) NOT NULL DEFAULT 0.00,
+                    ""Badge"" VARCHAR(100) DEFAULT 'Oferta Especial',
+                    ""ItemsJson"" TEXT DEFAULT '[]',
+                    ""Activo"" BOOLEAN NOT NULL DEFAULT TRUE,
+                    ""OrdenVisual"" INTEGER NOT NULL DEFAULT 0,
+                    ""FechaCreacion"" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                );
+                CREATE INDEX IF NOT EXISTS ""IX_Combos_Activo"" ON ""Combos"" (""Activo"");");
+            Console.WriteLine("Tabla Combos e índices verificados/creados con éxito.");
+
+            // Sembrado inicial de Combos si la tabla está vacía
+            if (!db.Combos.Any())
+            {
+                var combosIniciales = new List<Combo>
+                {
+                    new Combo
+                    {
+                        Nombre = "🔥 Combo Formateo PC Master",
+                        Subtitulo = "Windows 11 Pro + Office 2024 Pro Plus + ESET Antivirus",
+                        Descripcion = "El kit definitivo para dejar tu computadora blindada, activada de por vida y protegida con la mejor suite de seguridad.",
+                        PrecioOriginal = 114.80m,
+                        PrecioCombo = 89.90m,
+                        Ahorro = 24.90m,
+                        Badge = "Más Vendido para Técnicos y Gamers",
+                        ItemsJson = JsonSerializer.Serialize(new[] { "Windows 11 Pro", "Office Profesional Plus 2024", "ESET Internet Security" }),
+                        Activo = true,
+                        OrdenVisual = 1
+                    },
+                    new Combo
+                    {
+                        Nombre = "🎨 Combo Creador de Contenido & Video",
+                        Subtitulo = "Canva Pro + CapCut Pro + Filmora",
+                        Descripcion = "Todo lo que necesitas para diseñar miniaturas virales, editar reels y producir videos en 4K sin marcas de agua.",
+                        PrecioOriginal = 159.80m,
+                        PrecioCombo = 129.90m,
+                        Ahorro = 29.90m,
+                        Badge = "Ahorro del 20% Anual",
+                        ItemsJson = JsonSerializer.Serialize(new[] { "Canva Pro (Anual)", "CapCut Pro (Anual)", "Filmora" }),
+                        Activo = true,
+                        OrdenVisual = 2
+                    },
+                    new Combo
+                    {
+                        Nombre = "🍿 Combo Cine & Música Total",
+                        Subtitulo = "Netflix UHD + Spotify + YouTube Premium + HBO Max",
+                        Descripcion = "Disfruta de películas, series sin anuncios y tu música favorita en máxima fidelidad con perfiles garantizados.",
+                        PrecioOriginal = 46.90m,
+                        PrecioCombo = 36.90m,
+                        Ahorro = 10.00m,
+                        Badge = "Cero Anuncios en 4K",
+                        ItemsJson = JsonSerializer.Serialize(new[] { "Netflix Premium (1 Mes)", "Spotify Premium (1 Mes)", "YouTube Premium (1 Mes)", "HBO Max (1 Mes)" }),
+                        Activo = true,
+                        OrdenVisual = 3
+                    },
+                    new Combo
+                    {
+                        Nombre = "🤖 Combo Dúo Inteligencia Artificial",
+                        Subtitulo = "ChatGPT Plus + Claude Pro (o Gemini Advanced)",
+                        Descripcion = "Compara respuestas, programa software y analiza documentos extensos con los 2 mejores modelos de IA del planeta.",
+                        PrecioOriginal = 44.80m,
+                        PrecioCombo = 34.90m,
+                        Ahorro = 9.90m,
+                        Badge = "Productividad Extrema",
+                        ItemsJson = JsonSerializer.Serialize(new[] { "ChatGPT Plus (1 Mes)", "Claude Pro (1 Mes)" }),
+                        Activo = true,
+                        OrdenVisual = 4
+                    }
+                };
+
+                db.Combos.AddRange(combosIniciales);
+                db.SaveChanges();
+                Console.WriteLine("Combos semilla registrados con éxito.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Advertencia al verificar o sembrar tabla Combos: {ex.Message}");
+        }
+
+
 
         // Cargar y ejecutar el script SQL alter_imagen_url_length.sql directamente si existe
         var sqlPath = Path.Combine(app.Environment.ContentRootPath, "Data", "alter_imagen_url_length.sql");
@@ -1714,6 +1805,232 @@ app.MapGet("/api/social-proof/recientes", async (ApplicationDbContext db) =>
     }
 });
 
+// =========================================================================
+// 22. PACKS & COMBOS PRO DE AHORRO - ENDPOINTS PÚBLICOS Y ADMINISTRATIVOS
+// =========================================================================
+
+// A. Obtener Combos Activos para el Catálogo Público
+app.MapGet("/api/combos", async (ApplicationDbContext db) =>
+{
+    try
+    {
+        var combos = await db.Combos
+            .Where(c => c.Activo)
+            .OrderBy(c => c.OrdenVisual)
+            .ThenBy(c => c.Id)
+            .ToListAsync();
+
+        var resultado = combos.Select(c => new
+        {
+            id = c.Id,
+            nombre = c.Nombre,
+            subtitulo = c.Subtitulo,
+            descripcion = c.Descripcion,
+            precioOriginal = c.PrecioOriginal,
+            precioCombo = c.PrecioCombo,
+            ahorro = c.Ahorro > 0 ? c.Ahorro : Math.Max(0, c.PrecioOriginal - c.PrecioCombo),
+            badge = c.Badge,
+            items = ParseComboItems(c.ItemsJson),
+            activo = c.Activo,
+            ordenVisual = c.OrdenVisual
+        });
+
+        return Results.Ok(resultado);
+    }
+    catch (Exception ex)
+    {
+        var log = $"Fecha: {DateTime.UtcNow}\nComponente: GetCombosPublico\nMensaje: {ex.Message}\nTraza: {ex.StackTrace}";
+        Console.WriteLine(log);
+        return Results.Json(new { mensaje = "Error al obtener packs y combos.", detalle = ex.Message }, statusCode: 500);
+    }
+});
+
+// B. Obtener Todos los Combos (Modo Administración - Incluye Inactivos)
+app.MapGet("/api/admin/combos", async (ApplicationDbContext db) =>
+{
+    try
+    {
+        var combos = await db.Combos
+            .OrderBy(c => c.OrdenVisual)
+            .ThenBy(c => c.Id)
+            .ToListAsync();
+
+        var resultado = combos.Select(c => new
+        {
+            id = c.Id,
+            nombre = c.Nombre,
+            subtitulo = c.Subtitulo,
+            descripcion = c.Descripcion,
+            precioOriginal = c.PrecioOriginal,
+            precioCombo = c.PrecioCombo,
+            ahorro = c.Ahorro > 0 ? c.Ahorro : Math.Max(0, c.PrecioOriginal - c.PrecioCombo),
+            badge = c.Badge,
+            items = ParseComboItems(c.ItemsJson),
+            itemsJson = c.ItemsJson,
+            activo = c.Activo,
+            ordenVisual = c.OrdenVisual,
+            fechaCreacion = c.FechaCreacion
+        });
+
+        return Results.Ok(resultado);
+    }
+    catch (Exception ex)
+    {
+        var log = $"Fecha: {DateTime.UtcNow}\nComponente: AdminGetCombos\nMensaje: {ex.Message}\nTraza: {ex.StackTrace}";
+        Console.WriteLine(log);
+        return Results.Json(new { mensaje = "Error al listar combos administrativos.", detalle = ex.Message }, statusCode: 500);
+    }
+}).RequireAdminRole();
+
+// C. Crear Nuevo Combo
+app.MapPost("/api/admin/combos", async (ComboDto dto, ApplicationDbContext db) =>
+{
+    try
+    {
+        if (string.IsNullOrWhiteSpace(dto.Nombre))
+        {
+            return Results.BadRequest(new { mensaje = "El nombre del combo es obligatorio." });
+        }
+
+        var itemsList = dto.Items ?? new List<string>();
+        decimal ahorroCalc = (dto.Ahorro.HasValue && dto.Ahorro.Value > 0)
+            ? dto.Ahorro.Value
+            : Math.Max(0, dto.PrecioOriginal - dto.PrecioCombo);
+
+        var combo = new Combo
+        {
+            Nombre = dto.Nombre.Trim(),
+            Subtitulo = dto.Subtitulo?.Trim() ?? string.Empty,
+            Descripcion = dto.Descripcion?.Trim() ?? string.Empty,
+            PrecioOriginal = dto.PrecioOriginal,
+            PrecioCombo = dto.PrecioCombo,
+            Ahorro = ahorroCalc,
+            Badge = string.IsNullOrWhiteSpace(dto.Badge) ? "Oferta Especial" : dto.Badge.Trim(),
+            ItemsJson = JsonSerializer.Serialize(itemsList),
+            Activo = dto.Activo,
+            OrdenVisual = dto.OrdenVisual,
+            FechaCreacion = DateTime.UtcNow
+        };
+
+        db.Combos.Add(combo);
+        await db.SaveChangesAsync();
+
+        return Results.Created($"/api/admin/combos/{combo.Id}", combo);
+    }
+    catch (Exception ex)
+    {
+        var log = $"Fecha: {DateTime.UtcNow}\nComponente: AdminCreateCombo\nMensaje: {ex.Message}\nTraza: {ex.StackTrace}";
+        Console.WriteLine(log);
+        return Results.Json(new { mensaje = "Error al registrar el combo.", detalle = ex.Message }, statusCode: 500);
+    }
+}).RequireAdminRole();
+
+// D. Actualizar Combo Existente
+app.MapPut("/api/admin/combos/{id}", async (int id, ComboDto dto, ApplicationDbContext db) =>
+{
+    try
+    {
+        var combo = await db.Combos.FindAsync(id);
+        if (combo == null)
+        {
+            return Results.NotFound(new { mensaje = "Combo no encontrado." });
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.Nombre))
+        {
+            return Results.BadRequest(new { mensaje = "El nombre del combo es obligatorio." });
+        }
+
+        var itemsList = dto.Items ?? new List<string>();
+        decimal ahorroCalc = (dto.Ahorro.HasValue && dto.Ahorro.Value > 0)
+            ? dto.Ahorro.Value
+            : Math.Max(0, dto.PrecioOriginal - dto.PrecioCombo);
+
+        combo.Nombre = dto.Nombre.Trim();
+        combo.Subtitulo = dto.Subtitulo?.Trim() ?? string.Empty;
+        combo.Descripcion = dto.Descripcion?.Trim() ?? string.Empty;
+        combo.PrecioOriginal = dto.PrecioOriginal;
+        combo.PrecioCombo = dto.PrecioCombo;
+        combo.Ahorro = ahorroCalc;
+        combo.Badge = string.IsNullOrWhiteSpace(dto.Badge) ? "Oferta Especial" : dto.Badge.Trim();
+        combo.ItemsJson = JsonSerializer.Serialize(itemsList);
+        combo.Activo = dto.Activo;
+        combo.OrdenVisual = dto.OrdenVisual;
+
+        await db.SaveChangesAsync();
+
+        return Results.Ok(combo);
+    }
+    catch (Exception ex)
+    {
+        var log = $"Fecha: {DateTime.UtcNow}\nComponente: AdminUpdateCombo\nMensaje: {ex.Message}\nTraza: {ex.StackTrace}";
+        Console.WriteLine(log);
+        return Results.Json(new { mensaje = "Error al actualizar el combo.", detalle = ex.Message }, statusCode: 500);
+    }
+}).RequireAdminRole();
+
+// E. Interruptor Rápido de Visibilidad (Activar / Ocultar)
+app.MapPut("/api/admin/combos/{id}/toggle-visibilidad", async (int id, ApplicationDbContext db) =>
+{
+    try
+    {
+        var combo = await db.Combos.FindAsync(id);
+        if (combo == null)
+        {
+            return Results.NotFound(new { mensaje = "Combo no encontrado." });
+        }
+
+        combo.Activo = !combo.Activo;
+        await db.SaveChangesAsync();
+
+        return Results.Ok(new 
+        { 
+            id = combo.Id, 
+            activo = combo.Activo, 
+            mensaje = combo.Activo ? "Combo activado y visible en la tienda." : "Combo ocultado de la tienda pública." 
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.Json(new { mensaje = "Error al alternar visibilidad del combo.", detalle = ex.Message }, statusCode: 500);
+    }
+}).RequireAdminRole();
+
+// F. Eliminar Combo
+app.MapDelete("/api/admin/combos/{id}", async (int id, ApplicationDbContext db) =>
+{
+    try
+    {
+        var combo = await db.Combos.FindAsync(id);
+        if (combo == null)
+        {
+            return Results.NotFound(new { mensaje = "Combo no encontrado." });
+        }
+
+        db.Combos.Remove(combo);
+        await db.SaveChangesAsync();
+
+        return Results.Ok(new { mensaje = "Combo eliminado con éxito." });
+    }
+    catch (Exception ex)
+    {
+        return Results.Json(new { mensaje = "Error al eliminar el combo.", detalle = ex.Message }, statusCode: 500);
+    }
+}).RequireAdminRole();
+
+static List<string> ParseComboItems(string? json)
+{
+    if (string.IsNullOrWhiteSpace(json)) return new List<string>();
+    try
+    {
+        return JsonSerializer.Deserialize<List<string>>(json) ?? new List<string>();
+    }
+    catch
+    {
+        return new List<string>();
+    }
+}
+
 app.Run();
 
 // --- DATA TRANSFER OBJECTS (DTOs) ---
@@ -1728,6 +2045,7 @@ public record RegistrarClienteDto(string Nombre, string Email, string? Dni, stri
 public record EditarClienteDto(string Nombre, string Email, string? Dni, string? Telefono, string? AsignarNuevaContrasena);
 public record ProductoExternoDto(int Id, string Nombre, string Descripcion, decimal Precio, int DuracionMeses, string Categoria, string ImagenUrl, bool Activo);
 public record RegistrarVisitaDto(string SessionId, string Ruta, string? TituloPagina, string? Dispositivo, string? Navegador, string? SistemaOperativo, string? Referrer, int? UsuarioId, string? UsuarioNombre, string? UsuarioEmail);
+public record ComboDto(string Nombre, string? Subtitulo, string? Descripcion, decimal PrecioOriginal, decimal PrecioCombo, decimal? Ahorro, string? Badge, List<string>? Items, bool Activo, int OrdenVisual);
 
 
 // --- JWT TOKEN GENERATION HELPER ---

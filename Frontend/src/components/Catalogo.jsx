@@ -299,10 +299,10 @@ export default function Catalogo() {
     }
   }, []);
 
-  // Definición de Combos Pro para entusiastas con ahorro visible
-  const combosPro = [
+  // Definición de Combos Semilla de Respaldo por defecto
+  const DEFAULT_COMBOS = [
     {
-      id: 'combo-pc-master',
+      id: 1,
       nombre: '🔥 Combo Formateo PC Master',
       subtitulo: 'Windows 11 Pro + Office 2024 Pro Plus + ESET Antivirus',
       descripcion: 'El kit definitivo para dejar tu computadora blindada, activada de por vida y protegida con la mejor suite de seguridad.',
@@ -310,10 +310,11 @@ export default function Catalogo() {
       precioCombo: 89.90,
       ahorro: 24.90,
       items: ['Windows 11 Pro', 'Office Profesional Plus 2024', 'ESET Internet Security'],
-      badge: 'Más Vendido para Técnicos y Gamers'
+      badge: 'Más Vendido para Técnicos y Gamers',
+      activo: true
     },
     {
-      id: 'combo-creador',
+      id: 2,
       nombre: '🎨 Combo Creador de Contenido & Video',
       subtitulo: 'Canva Pro + CapCut Pro + Filmora',
       descripcion: 'Todo lo que necesitas para diseñar miniaturas virales, editar reels y producir videos en 4K sin marcas de agua.',
@@ -321,10 +322,11 @@ export default function Catalogo() {
       precioCombo: 129.90,
       ahorro: 29.90,
       items: ['Canva Pro (Anual)', 'CapCut Pro (Anual)', 'Filmora'],
-      badge: 'Ahorro del 20% Anual'
+      badge: 'Ahorro del 20% Anual',
+      activo: true
     },
     {
-      id: 'combo-entretenimiento',
+      id: 3,
       nombre: '🍿 Combo Cine & Música Total',
       subtitulo: 'Netflix UHD + Spotify + YouTube Premium + HBO Max',
       descripcion: 'Disfruta de películas, series sin anuncios y tu música favorita en máxima fidelidad con perfiles garantizados.',
@@ -332,10 +334,11 @@ export default function Catalogo() {
       precioCombo: 36.90,
       ahorro: 10.00,
       items: ['Netflix Premium (1 Mes)', 'Spotify Premium (1 Mes)', 'YouTube Premium (1 Mes)', 'HBO Max (1 Mes)'],
-      badge: 'Cero Anuncios en 4K'
+      badge: 'Cero Anuncios en 4K',
+      activo: true
     },
     {
-      id: 'combo-doble-ia',
+      id: 4,
       nombre: '🤖 Combo Dúo Inteligencia Artificial',
       subtitulo: 'ChatGPT Plus + Claude Pro (o Gemini Advanced)',
       descripcion: 'Compara respuestas, programa software y analiza documentos extensos con los 2 mejores modelos de IA del planeta.',
@@ -343,9 +346,31 @@ export default function Catalogo() {
       precioCombo: 34.90,
       ahorro: 9.90,
       items: ['ChatGPT Plus (1 Mes)', 'Claude Pro (1 Mes)'],
-      badge: 'Productividad Extrema'
+      badge: 'Productividad Extrema',
+      activo: true
     }
   ];
+
+  const [combos, setCombos] = useState(DEFAULT_COMBOS);
+
+  // Sincronizar Combos Pro con el Backend en tiempo real
+  useEffect(() => {
+    const fetchCombos = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/combos`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            setCombos(data);
+          }
+        }
+      } catch (err) {
+        console.warn('Usando combos por defecto (backend iniciando):', err.message);
+      }
+    };
+
+    fetchCombos();
+  }, []);
 
   const handleAgregar = (producto, e) => {
     if (e) e.stopPropagation();
@@ -359,8 +384,12 @@ export default function Catalogo() {
 
   const handleAgregarCombo = (combo) => {
     let agregados = 0;
-    combo.items.forEach(itemNombre => {
-      const prodEncontrado = productos.find(p => p.nombre.toLowerCase().includes(itemNombre.toLowerCase()) || itemNombre.toLowerCase().includes(p.nombre.toLowerCase()));
+    const items = Array.isArray(combo.items) ? combo.items : [];
+    items.forEach(itemNombre => {
+      const prodEncontrado = productos.find(p => 
+        (p.nombre || '').toLowerCase().includes(itemNombre.toLowerCase()) || 
+        itemNombre.toLowerCase().includes((p.nombre || '').toLowerCase())
+      );
       if (prodEncontrado) {
         addToCart(prodEncontrado);
         agregados++;
@@ -589,18 +618,18 @@ export default function Catalogo() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {combosPro.map((combo) => (
+            {combos.map((combo) => (
               <div 
                 key={combo.id}
                 className="bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 border border-slate-800 hover:border-amber-500/40 rounded-2xl p-5 shadow-xl flex flex-col justify-between transition-all duration-300 group hover:-translate-y-1 relative overflow-hidden"
               >
                 <div className="absolute top-0 right-0 bg-amber-500/10 border-l border-b border-amber-500/30 text-amber-400 text-[10px] font-extrabold px-2.5 py-1 rounded-bl-xl uppercase tracking-wider">
-                  Ahorras S/ {combo.ahorro.toFixed(2)}
+                  Ahorras S/ {Number(combo.ahorro || (combo.precioOriginal - combo.precioCombo) || 0).toFixed(2)}
                 </div>
 
                 <div>
                   <span className="text-[10px] font-bold text-sky-400 uppercase tracking-widest block mb-1">
-                    {combo.badge}
+                    {combo.badge || 'Oferta Especial'}
                   </span>
                   <h3 className="text-base font-black text-slate-100 group-hover:text-amber-300 transition-colors">
                     {combo.nombre}
@@ -611,9 +640,9 @@ export default function Catalogo() {
 
                   <div className="space-y-1.5 mb-5 bg-slate-955/60 p-3 rounded-xl border border-slate-850">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                      Incluye {combo.items.length} Licencias:
+                      Incluye {(combo.items || []).length} Licencias:
                     </span>
-                    {combo.items.map((it, i) => (
+                    {(combo.items || []).map((it, i) => (
                       <div key={i} className="flex items-center gap-1.5 text-xs text-slate-300">
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
                         <span className="truncate">{it}</span>
@@ -625,10 +654,10 @@ export default function Catalogo() {
                 <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between">
                   <div>
                     <span className="text-[10px] text-slate-500 line-through block">
-                      Antes S/ {combo.precioOriginal.toFixed(2)}
+                      Antes S/ {Number(combo.precioOriginal || 0).toFixed(2)}
                     </span>
                     <span className="text-lg font-black text-emerald-400 font-mono">
-                      S/ {combo.precioCombo.toFixed(2)}
+                      S/ {Number(combo.precioCombo || 0).toFixed(2)}
                     </span>
                   </div>
 
