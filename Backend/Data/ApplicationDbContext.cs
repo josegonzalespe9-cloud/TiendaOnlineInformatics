@@ -17,6 +17,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<Cupon> Cupones => Set<Cupon>();
     public DbSet<Visita> Visitas => Set<Visita>();
     public DbSet<Combo> Combos => Set<Combo>();
+    public DbSet<ProveedorTracking> ProveedorTrackings => Set<ProveedorTracking>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

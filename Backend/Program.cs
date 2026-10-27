@@ -37,6 +37,10 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 // Registrar el servicio en segundo plano para alertas de renovación
 builder.Services.AddHostedService<Backend.Services.WorkerRenovaciones>();
 
+// Registrar cliente HTTP y servicio de Radar de Proveedores
+builder.Services.AddHttpClient();
+builder.Services.AddSingleton<Backend.Services.RadarProveedoresService>();
+
 // Habilitar política de CORS para conectar con el Frontend en React
 builder.Services.AddCors(options =>
 {
@@ -331,6 +335,174 @@ using (var scope = app.Services.CreateScope())
         catch (Exception ex)
         {
             Console.WriteLine($"Advertencia al verificar o sembrar tabla Combos: {ex.Message}");
+        }
+
+        // Verificar si la tabla ProveedorTrackings existe para Radar de Proveedores, y si no, crearla
+        try
+        {
+            db.Database.ExecuteSqlRaw(@"
+                CREATE TABLE IF NOT EXISTS ""ProveedorTrackings"" (
+                    ""Id"" SERIAL PRIMARY KEY,
+                    ""ProductoId"" INTEGER NULL,
+                    ""ProductoNombre"" VARCHAR(150) NOT NULL,
+                    ""ProveedorNombre"" VARCHAR(100) NOT NULL,
+                    ""ProveedorUrl"" VARCHAR(500) NOT NULL,
+                    ""PrecioProveedor"" decimal(18,2) NOT NULL DEFAULT 0.00,
+                    ""Moneda"" VARCHAR(10) NOT NULL DEFAULT 'PEN',
+                    ""StockProveedor"" INTEGER NULL,
+                    ""Disponible"" BOOLEAN NOT NULL DEFAULT TRUE,
+                    ""CostoAnterior"" decimal(18,2) NULL,
+                    ""VariacionPrecio"" decimal(18,2) NOT NULL DEFAULT 0.00,
+                    ""Notas"" VARCHAR(255) NULL,
+                    ""AutoActualizarCosto"" BOOLEAN NOT NULL DEFAULT FALSE,
+                    ""UltimaActualizacion"" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                );
+                CREATE INDEX IF NOT EXISTS ""IX_ProveedorTrackings_ProductoId"" ON ""ProveedorTrackings"" (""ProductoId"");
+                CREATE INDEX IF NOT EXISTS ""IX_ProveedorTrackings_ProveedorNombre"" ON ""ProveedorTrackings"" (""ProveedorNombre"");");
+            Console.WriteLine("Tabla ProveedorTrackings e índices verificados/creados con éxito.");
+
+            // Sembrado inicial de ProveedorTrackings si la tabla está vacía
+            if (!db.ProveedorTrackings.Any())
+            {
+                var trackingsSemilla = new List<ProveedorTracking>
+                {
+                    new ProveedorTracking
+                    {
+                        ProductoNombre = "Windows 11 Pro",
+                        ProveedorNombre = "Compufarma",
+                        ProveedorUrl = "https://ganvent.com/compufarma",
+                        PrecioProveedor = 2.88m,
+                        Moneda = "PEN",
+                        StockProveedor = 21,
+                        Disponible = true,
+                        Notas = "Licencia OEM enlazada al hardware (Firestore REST API)",
+                        AutoActualizarCosto = false,
+                        UltimaActualizacion = DateTime.UtcNow
+                    },
+                    new ProveedorTracking
+                    {
+                        ProductoNombre = "Office 365 A3",
+                        ProveedorNombre = "Compufarma",
+                        ProveedorUrl = "https://ganvent.com/compufarma",
+                        PrecioProveedor = 1.50m,
+                        Moneda = "PEN",
+                        StockProveedor = 45,
+                        Disponible = true,
+                        Notas = "Suscripción institucional Office 365",
+                        AutoActualizarCosto = false,
+                        UltimaActualizacion = DateTime.UtcNow
+                    },
+                    new ProveedorTracking
+                    {
+                        ProductoNombre = "ESET Internet Security",
+                        ProveedorNombre = "Compufarma",
+                        ProveedorUrl = "https://ganvent.com/compufarma",
+                        PrecioProveedor = 15.00m,
+                        Moneda = "PEN",
+                        StockProveedor = 18,
+                        Disponible = true,
+                        Notas = "Activación retail de 365 días",
+                        AutoActualizarCosto = false,
+                        UltimaActualizacion = DateTime.UtcNow
+                    },
+                    new ProveedorTracking
+                    {
+                        ProductoNombre = "Canva Pro (Anual)",
+                        ProveedorNombre = "Compufarma",
+                        ProveedorUrl = "https://ganvent.com/compufarma",
+                        PrecioProveedor = 4.00m,
+                        Moneda = "PEN",
+                        StockProveedor = 29,
+                        Disponible = true,
+                        Notas = "Acceso premium administrado por equipo",
+                        AutoActualizarCosto = false,
+                        UltimaActualizacion = DateTime.UtcNow
+                    },
+                    new ProveedorTracking
+                    {
+                        ProductoNombre = "Filmora",
+                        ProveedorNombre = "Compufarma",
+                        ProveedorUrl = "https://ganvent.com/compufarma",
+                        PrecioProveedor = 28.00m,
+                        Moneda = "PEN",
+                        StockProveedor = 9,
+                        Disponible = true,
+                        Notas = "Wondershare Filmora 15 Pro",
+                        AutoActualizarCosto = false,
+                        UltimaActualizacion = DateTime.UtcNow
+                    },
+                    new ProveedorTracking
+                    {
+                        ProductoNombre = "Netflix Premium (1 Mes)",
+                        ProveedorNombre = "SkyStreaming",
+                        ProveedorUrl = "https://skystreaming.com.pe/categoria-producto/netflix/",
+                        PrecioProveedor = 9.50m,
+                        Moneda = "PEN",
+                        StockProveedor = 15,
+                        Disponible = true,
+                        Notas = "Perfil 4K Ultra HD con PIN privado",
+                        AutoActualizarCosto = false,
+                        UltimaActualizacion = DateTime.UtcNow
+                    },
+                    new ProveedorTracking
+                    {
+                        ProductoNombre = "Spotify Premium (1 Mes)",
+                        ProveedorNombre = "SkyStreaming",
+                        ProveedorUrl = "https://skystreaming.com.pe/categoria-producto/spotify/",
+                        PrecioProveedor = 4.00m,
+                        Moneda = "PEN",
+                        StockProveedor = 30,
+                        Disponible = true,
+                        Notas = "Plan individual sin caídas",
+                        AutoActualizarCosto = false,
+                        UltimaActualizacion = DateTime.UtcNow
+                    },
+                    new ProveedorTracking
+                    {
+                        ProductoNombre = "ChatGPT Plus (1 Mes)",
+                        ProveedorNombre = "SkyStreaming",
+                        ProveedorUrl = "https://skystreaming.com.pe/categoria-producto/ia/",
+                        PrecioProveedor = 11.50m,
+                        Moneda = "PEN",
+                        StockProveedor = 12,
+                        Disponible = true,
+                        Notas = "Acceso GPT-4o mensual garantizado",
+                        AutoActualizarCosto = false,
+                        UltimaActualizacion = DateTime.UtcNow
+                    },
+                    new ProveedorTracking
+                    {
+                        ProductoNombre = "Windows 10 Pro",
+                        ProveedorNombre = "G2A",
+                        ProveedorUrl = "https://www.g2a.com/microsoft-windows-10-professional-oem-key-global-i10000033961001",
+                        PrecioProveedor = 7.85m,
+                        Moneda = "USD",
+                        StockProveedor = 50,
+                        Disponible = true,
+                        Notas = "Global OEM Key marketplace ($2.10 USD)",
+                        AutoActualizarCosto = false,
+                        UltimaActualizacion = DateTime.UtcNow
+                    }
+                };
+
+                // Asignar ProductoId buscando por nombre en el catálogo existente
+                foreach (var trk in trackingsSemilla)
+                {
+                    var prod = db.Productos.FirstOrDefault(p => p.Nombre.ToLower() == trk.ProductoNombre.ToLower() || p.Nombre.ToLower().Contains(trk.ProductoNombre.ToLower()));
+                    if (prod != null)
+                    {
+                        trk.ProductoId = prod.Id;
+                    }
+                }
+
+                db.ProveedorTrackings.AddRange(trackingsSemilla);
+                db.SaveChanges();
+                Console.WriteLine("ProveedorTrackings semilla registrados con éxito.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Advertencia al verificar o sembrar tabla ProveedorTrackings: {ex.Message}");
         }
 
 
@@ -2018,6 +2190,375 @@ app.MapDelete("/api/admin/combos/{id}", async (int id, ApplicationDbContext db) 
     }
 }).RequireAdminRole();
 
+// ==========================================
+// MÓDULO: RADAR DE PROVEEDORES & PRECIOS (ADMIN)
+// ==========================================
+
+// 1. Obtener todos los productos monitoreados con métricas de margen y tienda
+app.MapGet("/api/admin/radar", async (ApplicationDbContext db) =>
+{
+    try
+    {
+        var trackings = await db.ProveedorTrackings.OrderBy(t => t.Id).ToListAsync();
+        var productos = await db.Productos.ToListAsync();
+
+        var resultado = trackings.Select(t =>
+        {
+            var prod = t.ProductoId.HasValue ? productos.FirstOrDefault(p => p.Id == t.ProductoId.Value) : productos.FirstOrDefault(p => p.Nombre.ToLower() == t.ProductoNombre.ToLower());
+            
+            decimal tasa = t.Moneda == "USD" ? 3.75m : 1.00m;
+            decimal precioProveedorSoles = Math.Round(t.PrecioProveedor * tasa, 2);
+            decimal tiendaPrecio = prod?.Precio ?? 0m;
+            decimal tiendaCosto = prod?.CostoProveedor ?? 0m;
+            decimal gananciaNetaSoles = tiendaPrecio > 0 && precioProveedorSoles > 0 ? Math.Round(tiendaPrecio - precioProveedorSoles, 2) : 0m;
+            decimal margenPorcentaje = tiendaPrecio > 0 && precioProveedorSoles > 0 ? Math.Round(((tiendaPrecio - precioProveedorSoles) / tiendaPrecio) * 100, 1) : 0m;
+
+            string estadoMargen = "sin_vinculo";
+            if (prod != null && precioProveedorSoles > 0)
+            {
+                if (gananciaNetaSoles <= 0) estadoMargen = "perdida";
+                else if (margenPorcentaje < 25) estadoMargen = "ajustado";
+                else if (margenPorcentaje >= 50) estadoMargen = "optimo";
+                else estadoMargen = "bueno";
+            }
+
+            return new
+            {
+                id = t.Id,
+                productoId = prod?.Id ?? t.ProductoId,
+                productoNombre = t.ProductoNombre,
+                proveedorNombre = t.ProveedorNombre,
+                proveedorUrl = t.ProveedorUrl,
+                precioProveedor = t.PrecioProveedor,
+                moneda = t.Moneda,
+                precioProveedorSoles = precioProveedorSoles,
+                stockProveedor = t.StockProveedor,
+                disponible = t.Disponible,
+                costoAnterior = t.CostoAnterior,
+                variacionPrecio = t.VariacionPrecio,
+                notas = t.Notas,
+                autoActualizarCosto = t.AutoActualizarCosto,
+                ultimaActualizacion = t.UltimaActualizacion,
+                tiendaPrecio = tiendaPrecio,
+                tiendaCostoActual = tiendaCosto,
+                tiendaImagenUrl = prod?.ImagenUrl ?? "",
+                tiendaCategoria = prod?.Categoria ?? "General",
+                tiendaActivo = prod?.Activo ?? false,
+                gananciaNetaSoles = gananciaNetaSoles,
+                margenPorcentaje = margenPorcentaje,
+                estadoMargen = estadoMargen
+            };
+        });
+
+        return Results.Ok(resultado);
+    }
+    catch (Exception ex)
+    {
+        return Results.Json(new { mensaje = "Error al obtener lista del radar de proveedores.", detalle = ex.Message }, statusCode: 500);
+    }
+}).RequireAdminRole();
+
+// 2. Catálogo en vivo de Compufarma (45 productos directo desde Firestore REST)
+app.MapGet("/api/admin/radar/compufarma-catalogo", async (Backend.Services.RadarProveedoresService radarService) =>
+{
+    try
+    {
+        var catalogo = await radarService.ObtenerCatalogoCompufarmaAsync(forzar: false);
+        return Results.Ok(catalogo);
+    }
+    catch (Exception ex)
+    {
+        return Results.Json(new { mensaje = "Error al obtener catálogo de Compufarma.", detalle = ex.Message }, statusCode: 500);
+    }
+}).RequireAdminRole();
+
+// 3. Crear / Vincular nuevo proveedor a monitorear
+app.MapPost("/api/admin/radar", async (CrearProveedorTrackingDto dto, ApplicationDbContext db, Backend.Services.RadarProveedoresService radarService) =>
+{
+    try
+    {
+        if (string.IsNullOrWhiteSpace(dto.ProveedorUrl) || string.IsNullOrWhiteSpace(dto.ProveedorNombre))
+        {
+            return Results.BadRequest(new { mensaje = "La URL y el Nombre del proveedor son obligatorios." });
+        }
+
+        string nombreProducto = dto.ProductoNombre?.Trim() ?? "";
+        if (dto.ProductoId.HasValue && string.IsNullOrWhiteSpace(nombreProducto))
+        {
+            var prod = await db.Productos.FindAsync(dto.ProductoId.Value);
+            if (prod != null) nombreProducto = prod.Nombre;
+        }
+
+        if (string.IsNullOrWhiteSpace(nombreProducto))
+        {
+            nombreProducto = "Producto Monitoreado";
+        }
+
+        var tracking = new ProveedorTracking
+        {
+            ProductoId = dto.ProductoId,
+            ProductoNombre = nombreProducto,
+            ProveedorNombre = dto.ProveedorNombre.Trim(),
+            ProveedorUrl = dto.ProveedorUrl.Trim(),
+            Moneda = string.IsNullOrWhiteSpace(dto.Moneda) ? "PEN" : dto.Moneda.ToUpper(),
+            Notas = dto.Notas,
+            AutoActualizarCosto = dto.AutoActualizarCosto ?? false,
+            UltimaActualizacion = DateTime.UtcNow,
+            PrecioProveedor = dto.PrecioProveedor ?? 0m,
+            StockProveedor = dto.StockProveedor,
+            Disponible = true
+        };
+
+        if (tracking.PrecioProveedor == 0)
+        {
+            var resultadoScan = await radarService.EscanearProveedorAsync(tracking.ProveedorUrl, tracking.ProveedorNombre, tracking.ProductoNombre);
+            if (resultadoScan.Exitoso && resultadoScan.Precio > 0)
+            {
+                tracking.PrecioProveedor = resultadoScan.Precio;
+                tracking.Moneda = resultadoScan.Moneda;
+                tracking.StockProveedor = resultadoScan.Stock;
+                tracking.Disponible = resultadoScan.Disponible;
+                if (!string.IsNullOrWhiteSpace(resultadoScan.Mensaje))
+                {
+                    tracking.Notas = string.IsNullOrWhiteSpace(tracking.Notas) ? resultadoScan.Mensaje : $"{tracking.Notas} | {resultadoScan.Mensaje}";
+                }
+            }
+        }
+
+        db.ProveedorTrackings.Add(tracking);
+        await db.SaveChangesAsync();
+
+        return Results.Created($"/api/admin/radar/{tracking.Id}", tracking);
+    }
+    catch (Exception ex)
+    {
+        return Results.Json(new { mensaje = "Error al crear monitoreo de proveedor.", detalle = ex.Message }, statusCode: 500);
+    }
+}).RequireAdminRole();
+
+// 4. Editar proveedor monitoreado
+app.MapPut("/api/admin/radar/{id}", async (int id, ActualizarProveedorTrackingDto dto, ApplicationDbContext db) =>
+{
+    try
+    {
+        var tracking = await db.ProveedorTrackings.FindAsync(id);
+        if (tracking == null)
+        {
+            return Results.NotFound(new { mensaje = "Registro de monitoreo no encontrado." });
+        }
+
+        if (dto.ProductoId.HasValue) tracking.ProductoId = dto.ProductoId;
+        if (!string.IsNullOrWhiteSpace(dto.ProductoNombre)) tracking.ProductoNombre = dto.ProductoNombre.Trim();
+        if (!string.IsNullOrWhiteSpace(dto.ProveedorNombre)) tracking.ProveedorNombre = dto.ProveedorNombre.Trim();
+        if (!string.IsNullOrWhiteSpace(dto.ProveedorUrl)) tracking.ProveedorUrl = dto.ProveedorUrl.Trim();
+        if (dto.PrecioProveedor.HasValue)
+        {
+            if (tracking.PrecioProveedor != dto.PrecioProveedor.Value)
+            {
+                tracking.CostoAnterior = tracking.PrecioProveedor;
+                tracking.VariacionPrecio = dto.PrecioProveedor.Value - tracking.PrecioProveedor;
+            }
+            tracking.PrecioProveedor = dto.PrecioProveedor.Value;
+        }
+        if (!string.IsNullOrWhiteSpace(dto.Moneda)) tracking.Moneda = dto.Moneda.ToUpper();
+        if (dto.StockProveedor.HasValue) tracking.StockProveedor = dto.StockProveedor.Value;
+        if (dto.Disponible.HasValue) tracking.Disponible = dto.Disponible.Value;
+        if (dto.Notas != null) tracking.Notas = dto.Notas;
+        if (dto.AutoActualizarCosto.HasValue) tracking.AutoActualizarCosto = dto.AutoActualizarCosto.Value;
+
+        tracking.UltimaActualizacion = DateTime.UtcNow;
+
+        await db.SaveChangesAsync();
+        return Results.Ok(new { mensaje = "Registro actualizado con éxito.", tracking });
+    }
+    catch (Exception ex)
+    {
+        return Results.Json(new { mensaje = "Error al actualizar registro de monitoreo.", detalle = ex.Message }, statusCode: 500);
+    }
+}).RequireAdminRole();
+
+// 5. Eliminar proveedor monitoreado
+app.MapDelete("/api/admin/radar/{id}", async (int id, ApplicationDbContext db) =>
+{
+    try
+    {
+        var tracking = await db.ProveedorTrackings.FindAsync(id);
+        if (tracking == null)
+        {
+            return Results.NotFound(new { mensaje = "Registro de monitoreo no encontrado." });
+        }
+
+        db.ProveedorTrackings.Remove(tracking);
+        await db.SaveChangesAsync();
+
+        return Results.Ok(new { mensaje = "Monitoreo eliminado correctamente." });
+    }
+    catch (Exception ex)
+    {
+        return Results.Json(new { mensaje = "Error al eliminar monitoreo.", detalle = ex.Message }, statusCode: 500);
+    }
+}).RequireAdminRole();
+
+// 6. Escaneo individual de un proveedor
+app.MapPost("/api/admin/radar/{id}/scan", async (int id, ApplicationDbContext db, Backend.Services.RadarProveedoresService radarService) =>
+{
+    try
+    {
+        var tracking = await db.ProveedorTrackings.FindAsync(id);
+        if (tracking == null)
+        {
+            return Results.NotFound(new { mensaje = "Registro de monitoreo no encontrado." });
+        }
+
+        var scan = await radarService.EscanearProveedorAsync(tracking.ProveedorUrl, tracking.ProveedorNombre, tracking.ProductoNombre);
+        if (scan.Exitoso && scan.Precio > 0)
+        {
+            if (tracking.PrecioProveedor > 0 && tracking.PrecioProveedor != scan.Precio)
+            {
+                tracking.CostoAnterior = tracking.PrecioProveedor;
+                tracking.VariacionPrecio = scan.Precio - tracking.PrecioProveedor;
+            }
+            tracking.PrecioProveedor = scan.Precio;
+            tracking.Moneda = scan.Moneda;
+            tracking.StockProveedor = scan.Stock;
+            tracking.Disponible = scan.Disponible;
+            tracking.UltimaActualizacion = DateTime.UtcNow;
+
+            if (tracking.AutoActualizarCosto && tracking.ProductoId.HasValue)
+            {
+                var prod = await db.Productos.FindAsync(tracking.ProductoId.Value);
+                if (prod != null)
+                {
+                    decimal tasa = tracking.Moneda == "USD" ? 3.75m : 1.00m;
+                    prod.CostoProveedor = Math.Round(tracking.PrecioProveedor * tasa, 2);
+                }
+            }
+
+            await db.SaveChangesAsync();
+            return Results.Ok(new { exitoso = true, scan, tracking, mensaje = $"Precio actualizado a {tracking.Moneda} {tracking.PrecioProveedor:F2}" });
+        }
+
+        return Results.Ok(new { exitoso = false, scan, mensaje = scan.Mensaje });
+    }
+    catch (Exception ex)
+    {
+        return Results.Json(new { mensaje = "Error durante el escaneo del proveedor.", detalle = ex.Message }, statusCode: 500);
+    }
+}).RequireAdminRole();
+
+// 7. Escaneo masivo en paralelo de todos los proveedores activos
+app.MapPost("/api/admin/radar/scan", async (ApplicationDbContext db, Backend.Services.RadarProveedoresService radarService) =>
+{
+    try
+    {
+        var trackings = await db.ProveedorTrackings.ToListAsync();
+        var productos = await db.Productos.ToListAsync();
+
+        int exitosos = 0;
+        int fallidos = 0;
+
+        var scanTasks = trackings.Select(async t =>
+        {
+            try
+            {
+                var scan = await radarService.EscanearProveedorAsync(t.ProveedorUrl, t.ProveedorNombre, t.ProductoNombre);
+                if (scan.Exitoso && scan.Precio > 0)
+                {
+                    if (t.PrecioProveedor > 0 && t.PrecioProveedor != scan.Precio)
+                    {
+                        t.CostoAnterior = t.PrecioProveedor;
+                        t.VariacionPrecio = scan.Precio - t.PrecioProveedor;
+                    }
+                    t.PrecioProveedor = scan.Precio;
+                    t.Moneda = scan.Moneda;
+                    t.StockProveedor = scan.Stock;
+                    t.Disponible = scan.Disponible;
+                    t.UltimaActualizacion = DateTime.UtcNow;
+
+                    if (t.AutoActualizarCosto && t.ProductoId.HasValue)
+                    {
+                        var prod = productos.FirstOrDefault(p => p.Id == t.ProductoId.Value);
+                        if (prod != null)
+                        {
+                            decimal tasa = t.Moneda == "USD" ? 3.75m : 1.00m;
+                            prod.CostoProveedor = Math.Round(t.PrecioProveedor * tasa, 2);
+                        }
+                    }
+
+                    Interlocked.Increment(ref exitosos);
+                }
+                else
+                {
+                    Interlocked.Increment(ref fallidos);
+                }
+            }
+            catch
+            {
+                Interlocked.Increment(ref fallidos);
+            }
+        });
+
+        await Task.WhenAll(scanTasks);
+        await db.SaveChangesAsync();
+
+        return Results.Ok(new 
+        { 
+            mensaje = $"Escaneo completado: {exitosos} actualizados con éxito, {fallidos} sin cambios.",
+            total = trackings.Count,
+            exitosos,
+            fallidos,
+            fecha = DateTime.UtcNow
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.Json(new { mensaje = "Error en escaneo masivo de proveedores.", detalle = ex.Message }, statusCode: 500);
+    }
+}).RequireAdminRole();
+
+// 8. Aplicar precio del proveedor como CostoProveedor en la tienda (1-Click Sync)
+app.MapPost("/api/admin/radar/{id}/aplicar-costo", async (int id, ApplicationDbContext db) =>
+{
+    try
+    {
+        var tracking = await db.ProveedorTrackings.FindAsync(id);
+        if (tracking == null)
+        {
+            return Results.NotFound(new { mensaje = "Registro de monitoreo no encontrado." });
+        }
+
+        if (!tracking.ProductoId.HasValue)
+        {
+            return Results.BadRequest(new { mensaje = "Este registro no está vinculado a un producto de la tienda." });
+        }
+
+        var producto = await db.Productos.FindAsync(tracking.ProductoId.Value);
+        if (producto == null)
+        {
+            return Results.NotFound(new { mensaje = "El producto vinculado no existe en la tienda." });
+        }
+
+        decimal tasa = tracking.Moneda == "USD" ? 3.75m : 1.00m;
+        decimal nuevoCostoSoles = Math.Round(tracking.PrecioProveedor * tasa, 2);
+
+        decimal costoAnterior = producto.CostoProveedor;
+        producto.CostoProveedor = nuevoCostoSoles;
+        await db.SaveChangesAsync();
+
+        return Results.Ok(new 
+        { 
+            mensaje = $"Costo del producto '{producto.Nombre}' actualizado a S/ {nuevoCostoSoles:F2} (antes: S/ {costoAnterior:F2}).",
+            productoId = producto.Id,
+            costoAnterior = costoAnterior,
+            nuevoCosto = nuevoCostoSoles
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.Json(new { mensaje = "Error al sincronizar costo con el producto.", detalle = ex.Message }, statusCode: 500);
+    }
+}).RequireAdminRole();
+
 static List<string> ParseComboItems(string? json)
 {
     if (string.IsNullOrWhiteSpace(json)) return new List<string>();
@@ -2046,6 +2587,8 @@ public record EditarClienteDto(string Nombre, string Email, string? Dni, string?
 public record ProductoExternoDto(int Id, string Nombre, string Descripcion, decimal Precio, int DuracionMeses, string Categoria, string ImagenUrl, bool Activo);
 public record RegistrarVisitaDto(string SessionId, string Ruta, string? TituloPagina, string? Dispositivo, string? Navegador, string? SistemaOperativo, string? Referrer, int? UsuarioId, string? UsuarioNombre, string? UsuarioEmail);
 public record ComboDto(string Nombre, string? Subtitulo, string? Descripcion, decimal PrecioOriginal, decimal PrecioCombo, decimal? Ahorro, string? Badge, List<string>? Items, bool Activo, int OrdenVisual);
+public record CrearProveedorTrackingDto(int? ProductoId, string? ProductoNombre, string ProveedorNombre, string ProveedorUrl, decimal? PrecioProveedor, string? Moneda, int? StockProveedor, string? Notas, bool? AutoActualizarCosto);
+public record ActualizarProveedorTrackingDto(int? ProductoId, string? ProductoNombre, string? ProveedorNombre, string? ProveedorUrl, decimal? PrecioProveedor, string? Moneda, int? StockProveedor, bool? Disponible, string? Notas, bool? AutoActualizarCosto);
 
 
 // --- JWT TOKEN GENERATION HELPER ---
