@@ -499,6 +499,44 @@ using (var scope = app.Services.CreateScope())
                 db.SaveChanges();
                 Console.WriteLine("ProveedorTrackings semilla registrados con éxito.");
             }
+
+            // Sembrado de proveedores comparativos adicionales (Compufarma vs SkyStreaming vs G2A)
+            var comparativosExtra = new List<ProveedorTracking>
+            {
+                new ProveedorTracking { ProductoNombre = "Windows 11 Pro", ProveedorNombre = "SkyStreaming", ProveedorUrl = "https://skystreaming.com.pe/categoria-producto/software/", PrecioProveedor = 14.00m, Moneda = "PEN", StockProveedor = 15, Disponible = true, Notas = "Licencia Digital Rápida" },
+                new ProveedorTracking { ProductoNombre = "Windows 11 Pro", ProveedorNombre = "G2A", ProveedorUrl = "https://www.g2a.com/microsoft-windows-11-pro-pc-microsoft-key-global-i10000271164001", PrecioProveedor = 2.50m, Moneda = "USD", StockProveedor = 40, Disponible = true, Notas = "Global OEM Key ($2.50 USD)" },
+                new ProveedorTracking { ProductoNombre = "Office 365 A3", ProveedorNombre = "SkyStreaming", ProveedorUrl = "https://skystreaming.com.pe/categoria-producto/software/", PrecioProveedor = 8.00m, Moneda = "PEN", StockProveedor = 20, Disponible = true, Notas = "Cuenta anual garantizada" },
+                new ProveedorTracking { ProductoNombre = "Office 365 A3", ProveedorNombre = "G2A", ProveedorUrl = "https://www.g2a.com/microsoft-office-365-pro-plus-account-global-i10000188857001", PrecioProveedor = 3.20m, Moneda = "USD", StockProveedor = 35, Disponible = true, Notas = "Global Account ($3.20 USD)" },
+                new ProveedorTracking { ProductoNombre = "Canva Pro (Anual)", ProveedorNombre = "SkyStreaming", ProveedorUrl = "https://skystreaming.com.pe/categoria-producto/software/", PrecioProveedor = 15.00m, Moneda = "PEN", StockProveedor = 10, Disponible = true, Notas = "Plan anual compartido" },
+                new ProveedorTracking { ProductoNombre = "Canva Pro (Anual)", ProveedorNombre = "G2A", ProveedorUrl = "https://www.g2a.com/canva-pro-1-year-account-global-i10000289112001", PrecioProveedor = 4.50m, Moneda = "USD", StockProveedor = 25, Disponible = true, Notas = "Invitación Global ($4.50 USD)" },
+                new ProveedorTracking { ProductoNombre = "ESET Internet Security", ProveedorNombre = "SkyStreaming", ProveedorUrl = "https://skystreaming.com.pe/categoria-producto/antivirus/", PrecioProveedor = 18.00m, Moneda = "PEN", StockProveedor = 8, Disponible = true, Notas = "1 PC / 1 Año" },
+                new ProveedorTracking { ProductoNombre = "ESET Internet Security", ProveedorNombre = "G2A", ProveedorUrl = "https://www.g2a.com/eset-internet-security-1-pc-1-year-key-global-i10000078028001", PrecioProveedor = 5.10m, Moneda = "USD", StockProveedor = 30, Disponible = true, Notas = "Global Key ($5.10 USD)" },
+                new ProveedorTracking { ProductoNombre = "Netflix Premium (1 Mes)", ProveedorNombre = "G2A", ProveedorUrl = "https://www.g2a.com/netflix-gift-card-account-global", PrecioProveedor = 3.80m, Moneda = "USD", StockProveedor = 18, Disponible = true, Notas = "Perfil Ultra HD ($3.80 USD)" },
+                new ProveedorTracking { ProductoNombre = "Netflix Premium (1 Mes)", ProveedorNombre = "Compufarma", ProveedorUrl = "https://ganvent.com/compufarma", PrecioProveedor = 12.00m, Moneda = "PEN", StockProveedor = 14, Disponible = true, Notas = "Pantalla 4K Ultra HD" },
+                new ProveedorTracking { ProductoNombre = "Spotify Premium (1 Mes)", ProveedorNombre = "G2A", ProveedorUrl = "https://www.g2a.com/spotify-premium-1-month-key-global", PrecioProveedor = 2.00m, Moneda = "USD", StockProveedor = 25, Disponible = true, Notas = "Individual 1 Mes ($2.00 USD)" },
+                new ProveedorTracking { ProductoNombre = "ChatGPT Plus (1 Mes)", ProveedorNombre = "G2A", ProveedorUrl = "https://www.g2a.com/chatgpt-plus-1-month-account-global", PrecioProveedor = 4.90m, Moneda = "USD", StockProveedor = 15, Disponible = true, Notas = "Cuenta OpenAI GPT-4o ($4.90 USD)" },
+                new ProveedorTracking { ProductoNombre = "Windows 10 Pro", ProveedorNombre = "Compufarma", ProveedorUrl = "https://ganvent.com/compufarma", PrecioProveedor = 2.88m, Moneda = "PEN", StockProveedor = 21, Disponible = true, Notas = "Licencia OEM enlazada al hardware" },
+                new ProveedorTracking { ProductoNombre = "Windows 10 Pro", ProveedorNombre = "SkyStreaming", ProveedorUrl = "https://skystreaming.com.pe/categoria-producto/software/", PrecioProveedor = 12.00m, Moneda = "PEN", StockProveedor = 10, Disponible = true, Notas = "Licencia Digital Rápida" },
+                new ProveedorTracking { ProductoNombre = "Filmora", ProveedorNombre = "G2A", ProveedorUrl = "https://www.g2a.com/wondershare-filmora-lifetime-key-global", PrecioProveedor = 9.50m, Moneda = "USD", StockProveedor = 12, Disponible = true, Notas = "Lifetime License ($9.50 USD)" }
+            };
+
+            bool huboNuevos = false;
+            foreach (var extra in comparativosExtra)
+            {
+                if (!db.ProveedorTrackings.Any(t => t.ProductoNombre.ToLower() == extra.ProductoNombre.ToLower() && t.ProveedorNombre.ToLower() == extra.ProveedorNombre.ToLower()))
+                {
+                    var prod = db.Productos.FirstOrDefault(p => p.Nombre.ToLower() == extra.ProductoNombre.ToLower() || p.Nombre.ToLower().Contains(extra.ProductoNombre.ToLower()));
+                    if (prod != null) extra.ProductoId = prod.Id;
+                    extra.UltimaActualizacion = DateTime.UtcNow;
+                    db.ProveedorTrackings.Add(extra);
+                    huboNuevos = true;
+                }
+            }
+            if (huboNuevos)
+            {
+                db.SaveChanges();
+                Console.WriteLine("Proveedores comparativos adicionales (Compufarma, SkyStreaming, G2A) sembrados con éxito.");
+            }
         }
         catch (Exception ex)
         {

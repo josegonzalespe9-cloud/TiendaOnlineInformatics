@@ -987,12 +987,12 @@ export default function Catalogo() {
                       placeholder="Tu Nombre o Usuario"
                       value={nuevoComentario.nombre}
                       onChange={(e) => setNuevoComentario(prev => ({ ...prev, nombre: e.target.value }))}
-                      className="bg-slate-955 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-sky-500"
+                      className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-500"
                     />
                     <select
                       value={nuevoComentario.estrellas}
                       onChange={(e) => setNuevoComentario(prev => ({ ...prev, estrellas: Number(e.target.value) }))}
-                      className="bg-slate-955 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-sky-500"
+                      className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-sky-500"
                     >
                       <option value="5">★★★★★ (5 Estrellas - Activación Exitosa)</option>
                       <option value="4">★★★★☆ (4 Estrellas - Muy Bueno)</option>
@@ -1005,12 +1005,12 @@ export default function Catalogo() {
                     placeholder="Comparte tu experiencia de activación o velocidad de entrega..."
                     value={nuevoComentario.texto}
                     onChange={(e) => setNuevoComentario(prev => ({ ...prev, texto: e.target.value }))}
-                    className="w-full bg-slate-955 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-sky-500 resize-none"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-500 resize-none"
                   />
                   <div className="flex justify-end">
                     <button
                       type="submit"
-                      className="bg-sky-500 hover:bg-sky-400 text-slate-955 font-bold px-4 py-2 rounded-xl text-xs transition-all shadow-md active:scale-95"
+                      className="bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs transition-all shadow-md active:scale-95"
                     >
                       Publicar Opinión
                     </button>

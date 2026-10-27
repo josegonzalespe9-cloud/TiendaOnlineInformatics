@@ -8,7 +8,7 @@ import {
   FileSpreadsheet, DollarSign, Percent, Filter, ShieldCheck, Flame, 
   ArrowUpRight, Clock, MessageSquare, Copy, Check,
   Activity, Radio, Smartphone, Monitor, Tablet, Globe, ShoppingCart,
-  ExternalLink, Zap, Sliders, Layers
+  ExternalLink, Zap, Sliders, Layers, Crown, Award
 } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import { API_URL } from '../services/api';
@@ -157,6 +157,7 @@ export default function AdminPanel() {
   const [syncingCostId, setSyncingCostId] = useState(null);
   const [radarInterval, setRadarInterval] = useState(() => localStorage.getItem('informatics_radar_interval') || '0');
   const [ultimaActualizacionRadar, setUltimaActualizacionRadar] = useState(null);
+  const [radarViewMode, setRadarViewMode] = useState('comparativo'); // 'comparativo' | 'individual'
   const [searchRadarQuery, setSearchRadarQuery] = useState('');
   const [filterRadarProveedor, setFilterRadarProveedor] = useState('Todos'); // 'Todos' | 'Compufarma' | 'SkyStreaming' | 'G2A' | 'Otros'
   const [filterRadarEstado, setFilterRadarEstado] = useState('Todos'); // 'Todos' | 'optimo' | 'bueno' | 'ajustado' | 'perdida'
@@ -1354,7 +1355,7 @@ export default function AdminPanel() {
     }
   };
 
-  const handleOpenRadarModal = (mode = 'create', item = null) => {
+  const handleOpenRadarModal = (mode = 'create', item = null, defaultProvider = null, defaultProduct = null) => {
     setShowRadarModal(mode);
     setEditingRadarItem(item);
     if (item && mode === 'edit') {
@@ -1363,7 +1364,7 @@ export default function AdminPanel() {
         productoNombre: item.productoNombre || '',
         proveedorNombre: item.proveedorNombre || 'Compufarma',
         proveedorUrl: item.proveedorUrl || '',
-        precioProveedor: (item.precioProveedor || 0).toString(),
+        precioProveedor: (item.precioProveedorOriginal || item.precioProveedor || 0).toString(),
         moneda: item.moneda || 'PEN',
         stockProveedor: item.stockProveedor ? item.stockProveedor.toString() : '',
         notas: item.notas || '',
@@ -1371,19 +1372,29 @@ export default function AdminPanel() {
       });
       setModalRadarTab('manual');
     } else {
+      const prod = defaultProduct || (productos.length > 0 ? productos[0] : null);
+      const prov = defaultProvider || 'Compufarma';
+      let defaultUrl = 'https://ganvent.com/compufarma';
+      if (prov === 'SkyStreaming') defaultUrl = 'https://skystreaming.com.pe/';
+      if (prov === 'G2A') defaultUrl = 'https://www.g2a.com/';
+
       setRadarForm({
-        productoId: productos.length > 0 ? (productos[0].id || productos[0].productoId).toString() : '',
-        productoNombre: productos.length > 0 ? productos[0].nombre : '',
-        proveedorNombre: 'Compufarma',
-        proveedorUrl: 'https://ganvent.com/compufarma',
+        productoId: prod ? (prod.id || prod.productoId).toString() : '',
+        productoNombre: prod ? prod.nombre : '',
+        proveedorNombre: prov,
+        proveedorUrl: defaultUrl,
         precioProveedor: '',
-        moneda: 'PEN',
+        moneda: prov === 'G2A' ? 'USD' : 'PEN',
         stockProveedor: '',
         notas: '',
         autoActualizarCosto: false
       });
-      setModalRadarTab('compufarma');
-      fetchCompufarmaCatalogo();
+      if (prov === 'Compufarma') {
+        setModalRadarTab('compufarma');
+        fetchCompufarmaCatalogo();
+      } else {
+        setModalRadarTab('manual');
+      }
     }
   };
 
@@ -1635,6 +1646,153 @@ export default function AdminPanel() {
     });
   }, [radarItems, searchRadarQuery, filterRadarProveedor, filterRadarEstado]);
 
+  // --- GRUPOS COMPARATIVOS MULTI-PROVEEDOR (3 EN 1: COMPUFARMA VS SKYSTREAMING VS G2A) ---
+  const productosComparativosRadar = useMemo(() => {
+    const norm = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const map = new Map();
+
+    // 1. Inicializar con los productos de la tienda
+    productos.forEach(p => {
+      const pId = p.id || p.productoId;
+      map.set(pId, {
+        id: pId,
+        nombre: p.nombre,
+        categoria: p.categoria || 'Software',
+        imagenUrl: p.imagenUrl,
+        precio: p.precio || 0,
+        costoActual: p.costoProveedor || 0,
+        compufarma: null,
+        skystreaming: null,
+        g2a: null,
+        otros: [],
+        rawProduct: p
+      });
+    });
+
+    // 2. Asociar cada trackingItem a su producto
+    const unmappedItems = [];
+    radarItems.forEach(item => {
+      let matchedProdId = item.productoId;
+
+      if (!matchedProdId || !map.has(matchedProdId)) {
+        const itemNorm = norm(item.productoNombre);
+        for (const [pId, group] of map.entries()) {
+          const groupNorm = norm(group.nombre);
+          if (itemNorm.includes(groupNorm) || groupNorm.includes(itemNorm)) {
+            matchedProdId = pId;
+            break;
+          }
+        }
+      }
+
+      const prov = (item.proveedorNombre || '').toLowerCase();
+      const isCompufarma = prov.includes('compufarma') || prov.includes('ganvent');
+      const isSky = prov.includes('skystreaming') || prov.includes('sky');
+      const isG2A = prov.includes('g2a');
+
+      if (matchedProdId && map.has(matchedProdId)) {
+        const group = map.get(matchedProdId);
+        if (isCompufarma && !group.compufarma) {
+          group.compufarma = item;
+        } else if (isSky && !group.skystreaming) {
+          group.skystreaming = item;
+        } else if (isG2A && !group.g2a) {
+          group.g2a = item;
+        } else {
+          group.otros.push(item);
+        }
+      } else {
+        unmappedItems.push(item);
+      }
+    });
+
+    let list = Array.from(map.values());
+
+    // 3. Agrupar items huérfanos que no coincidan con productos de la tienda
+    const unmappedGroups = new Map();
+    unmappedItems.forEach(item => {
+      const nameKey = (item.productoNombre || 'Sin nombre').toLowerCase().trim();
+      if (!unmappedGroups.has(nameKey)) {
+        unmappedGroups.set(nameKey, {
+          id: null,
+          nombre: item.productoNombre || 'Producto en Radar',
+          categoria: item.tiendaCategoria || 'Software',
+          imagenUrl: item.tiendaImagenUrl,
+          precio: item.tiendaPrecio || 0,
+          costoActual: item.tiendaCostoActual || 0,
+          compufarma: null,
+          skystreaming: null,
+          g2a: null,
+          otros: [],
+          rawProduct: null
+        });
+      }
+      const g = unmappedGroups.get(nameKey);
+      const prov = (item.proveedorNombre || '').toLowerCase();
+      if ((prov.includes('compufarma') || prov.includes('ganvent')) && !g.compufarma) {
+        g.compufarma = item;
+      } else if ((prov.includes('skystreaming') || prov.includes('sky')) && !g.skystreaming) {
+        g.skystreaming = item;
+      } else if (prov.includes('g2a') && !g.g2a) {
+        g.g2a = item;
+      } else {
+        g.otros.push(item);
+      }
+    });
+
+    list = [...list, ...Array.from(unmappedGroups.values())];
+
+    // 4. Calcular métricas comparativas (mejor opción, ahorro vs segundo mejor)
+    const processed = list.map(g => {
+      const allTrackings = [g.compufarma, g.skystreaming, g.g2a, ...g.otros].filter(Boolean);
+      const validTrackings = allTrackings
+        .filter(t => t.precioProveedorSoles > 0)
+        .sort((a, b) => a.precioProveedorSoles - b.precioProveedorSoles);
+
+      const mejorProveedor = validTrackings[0] || null;
+      const segundoProveedor = validTrackings[1] || null;
+      const ahorro = (mejorProveedor && segundoProveedor)
+        ? (segundoProveedor.precioProveedorSoles - mejorProveedor.precioProveedorSoles)
+        : 0;
+
+      const precioMasBajo = mejorProveedor ? mejorProveedor.precioProveedorSoles : null;
+      const desactualizadoEnTienda = mejorProveedor && g.costoActual > 0 && Math.abs(g.costoActual - mejorProveedor.precioProveedorSoles) > 0.01;
+
+      return {
+        ...g,
+        totalTrackings: allTrackings.length,
+        mejorProveedor,
+        segundoProveedor,
+        ahorro,
+        precioMasBajo,
+        desactualizadoEnTienda
+      };
+    });
+
+    // 5. Filtros de búsqueda y proveedor
+    return processed.filter(g => {
+      const q = searchRadarQuery.toLowerCase().trim();
+      const matchesQ = !q ||
+        g.nombre.toLowerCase().includes(q) ||
+        g.categoria.toLowerCase().includes(q) ||
+        (g.compufarma && (g.compufarma.notas || '').toLowerCase().includes(q)) ||
+        (g.skystreaming && (g.skystreaming.notas || '').toLowerCase().includes(q)) ||
+        (g.g2a && (g.g2a.notas || '').toLowerCase().includes(q));
+
+      const matchesProv = filterRadarProveedor === 'Todos' ||
+        (filterRadarProveedor === 'Compufarma' && g.compufarma) ||
+        (filterRadarProveedor === 'SkyStreaming' && g.skystreaming) ||
+        (filterRadarProveedor === 'G2A' && g.g2a);
+
+      return matchesQ && matchesProv;
+    }).sort((a, b) => {
+      if (b.totalTrackings !== a.totalTrackings) {
+        return b.totalTrackings - a.totalTrackings;
+      }
+      return a.nombre.localeCompare(b.nombre);
+    });
+  }, [productos, radarItems, searchRadarQuery, filterRadarProveedor]);
+
   const metricasRadar = useMemo(() => {
     const total = radarItems.length;
     const conVinculo = radarItems.filter(i => i.tiendaPrecio > 0 && i.precioProveedorSoles > 0);
@@ -1656,6 +1814,206 @@ export default function AdminPanel() {
       g2aCount: radarItems.filter(i => i.proveedorNombre.toLowerCase().includes('g2a')).length
     };
   }, [radarItems]);
+
+  // --- RENDERIZADO DE COLUMNA DE PROVEEDOR EN COMPARATIVA 3 EN 1 ---
+  const renderProveedorComparativoColumna = ({
+    nombreProv,
+    subtitulo,
+    trackingItem,
+    colorTema,
+    esGanador,
+    pvpTienda,
+    costoTienda,
+    productoOriginal,
+    productoNombre
+  }) => {
+    const isCompufarma = colorTema === 'emerald';
+    const isSky = colorTema === 'cyan';
+    const isG2A = colorTema === 'amber';
+
+    const headerBadgeClass = isCompufarma
+      ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+      : isSky
+      ? 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30'
+      : 'bg-amber-500/15 text-amber-400 border-amber-500/30';
+
+    if (!trackingItem) {
+      return (
+        <div className="bg-slate-950/60 border-2 border-dashed border-slate-800/80 rounded-2xl p-4 flex flex-col items-center justify-center text-center py-6 hover:border-slate-700 transition-all group min-h-[220px]">
+          <div className="w-10 h-10 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-500 group-hover:text-slate-300 transition-colors mb-2 shadow-inner">
+            <Globe className="w-4 h-4" />
+          </div>
+          <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border mb-1 ${headerBadgeClass}`}>
+            {nombreProv}
+          </span>
+          <p className="text-[11px] text-slate-400 mb-3 font-medium">No vinculado aún</p>
+          <button
+            type="button"
+            onClick={() => handleOpenRadarModal('create', null, nombreProv, productoOriginal)}
+            className="bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-bold px-3 py-1.5 rounded-xl transition-all shadow-sm flex items-center gap-1 active:scale-95"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            + Vincular {nombreProv}
+          </button>
+        </div>
+      );
+    }
+
+    const {
+      id,
+      precioProveedorSoles,
+      precioProveedorOriginal,
+      moneda,
+      stockProveedor,
+      disponible,
+      gananciaNetaSoles,
+      margenPorcentaje,
+      estadoMargen,
+      proveedorUrl,
+      notas
+    } = trackingItem;
+
+    const marginBadgeClass =
+      estadoMargen === 'optimo'
+        ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+        : estadoMargen === 'bueno'
+        ? 'bg-sky-500/15 text-sky-300 border-sky-500/30'
+        : estadoMargen === 'ajustado'
+        ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+        : 'bg-rose-500/15 text-rose-300 border-rose-500/30';
+
+    const esCostoActualEnTienda = Math.abs((costoTienda || 0) - (precioProveedorSoles || 0)) < 0.01;
+
+    return (
+      <div
+        className={`rounded-2xl p-4 flex flex-col justify-between transition-all duration-300 relative min-h-[220px] ${
+          esGanador
+            ? 'bg-gradient-to-b from-emerald-950/40 via-slate-950 to-slate-950 border-2 border-emerald-500/70 shadow-lg shadow-emerald-500/15 ring-1 ring-emerald-500/40'
+            : 'bg-slate-950/80 border border-slate-800 hover:border-slate-700'
+        }`}
+      >
+        {/* Badge Ganador Flotante */}
+        {esGanador && (
+          <div className="absolute -top-3 right-3 bg-gradient-to-r from-amber-400 via-emerald-400 to-teal-400 text-slate-950 text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-lg shadow-emerald-500/20 flex items-center gap-1 tracking-wide uppercase">
+            <span>👑</span>
+            <span>Mejor Opción</span>
+          </div>
+        )}
+
+        <div>
+          {/* Cabecera del Proveedor */}
+          <div className="flex items-center justify-between gap-2 mb-2.5">
+            <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border ${headerBadgeClass}`}>
+              {nombreProv}
+            </span>
+            <div className="text-[10px]">
+              {disponible !== false ? (
+                <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  {stockProveedor != null ? `${stockProveedor} disp.` : 'En Stock'}
+                </span>
+              ) : (
+                <span className="text-rose-400 font-semibold flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                  Agotado
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Bloque Financiero del Proveedor */}
+          <div className="mb-3 bg-slate-900/95 rounded-xl p-3 border border-slate-800/80 shadow-inner">
+            <div className="flex items-baseline justify-between">
+              <span className="text-[10px] uppercase font-bold text-slate-400">Costo Proveedor</span>
+              <div className="text-right">
+                <span className={`text-lg font-black font-mono ${esGanador ? 'text-emerald-400' : 'text-slate-100'}`}>
+                  S/ {precioProveedorSoles.toFixed(2)}
+                </span>
+                {moneda === 'USD' && (
+                  <span className="text-[10px] text-slate-400 block font-mono">
+                    (${precioProveedorOriginal?.toFixed(2) || '0.00'} USD)
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-slate-800 text-xs">
+              <div>
+                <span className="text-[9px] uppercase font-bold text-slate-400 block">Ganancia Neta</span>
+                <span className="font-mono font-black text-emerald-400">
+                  +S/ {gananciaNetaSoles.toFixed(2)}
+                </span>
+              </div>
+              <div className="text-right">
+                <span className="text-[9px] uppercase font-bold text-slate-400 block">Margen</span>
+                <span className={`text-[10px] font-black px-1.5 py-0.5 rounded border inline-block ${marginBadgeClass}`}>
+                  +{margenPorcentaje.toFixed(1)}%
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {notas && (
+            <p className="text-[10px] text-slate-400 italic line-clamp-1 mb-3">
+              💬 {notas}
+            </p>
+          )}
+        </div>
+
+        {/* Acciones de la Columna */}
+        <div className="pt-2.5 border-t border-slate-800/80 flex items-center justify-between gap-1.5">
+          {/* Botón Aplicar Costo */}
+          <button
+            type="button"
+            onClick={() => handleAplicarCosto(id, productoNombre, precioProveedorSoles)}
+            disabled={syncingCostId === id || esCostoActualEnTienda}
+            className={`text-[10px] font-black px-2.5 py-1.5 rounded-xl transition-all flex items-center gap-1 active:scale-95 ${
+              esCostoActualEnTienda
+                ? 'bg-slate-900 border border-slate-800 text-slate-400 cursor-default'
+                : esGanador
+                ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40'
+                : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800'
+            }`}
+            title="Sincronizar este costo con la tienda"
+          >
+            <Zap className="w-3 h-3 text-emerald-400" />
+            {syncingCostId === id ? 'Sincronizando...' : esCostoActualEnTienda ? 'Costo en Tienda' : 'Aplicar Costo'}
+          </button>
+
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => handleScanSingleItem(id, productoNombre)}
+              disabled={scanningItemId === id}
+              className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 transition-colors border border-slate-800/70"
+              title="Escanear precio ahora"
+            >
+              <RefreshCw className={`w-3 h-3 ${scanningItemId === id ? 'animate-spin text-emerald-400' : ''}`} />
+            </button>
+
+            <a
+              href={proveedorUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-sky-400 transition-colors border border-slate-800/70"
+              title="Abrir producto en la página del proveedor"
+            >
+              <ExternalLink className="w-3 h-3" />
+            </a>
+
+            <button
+              type="button"
+              onClick={() => handleOpenRadarModal('edit', trackingItem)}
+              className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-amber-400 transition-colors border border-slate-800/70"
+              title="Editar"
+            >
+              <Edit3 className="w-3 h-3" />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   // --- CONTROL Y SINCRONIZACIÓN DEL SCROLL LATERAL STICKY DE PRODUCTOS ---
   const updateScrollMetrics = () => {
@@ -4629,28 +4987,59 @@ export default function AdminPanel() {
           </div>
 
           {/* 3. BARRA DE HERRAMIENTAS, BÚSQUEDA Y FILTROS */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col md:flex-row gap-3 items-center justify-between shadow-xl">
-            {/* Buscador */}
-            <div className="relative w-full md:w-80">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col xl:flex-row gap-4 items-center justify-between shadow-xl">
+            {/* Buscador de Alto Contraste */}
+            <div className="relative w-full xl:w-96">
+              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
                 placeholder="Buscar por producto, proveedor o nota..."
                 value={searchRadarQuery}
                 onChange={(e) => setSearchRadarQuery(e.target.value)}
-                className="w-full bg-slate-955 border border-slate-800 text-slate-200 text-xs pl-9 pr-4 py-2 rounded-xl focus:border-emerald-500 focus:outline-none"
+                className="w-full bg-slate-950 border border-slate-800 text-slate-100 placeholder:text-slate-500 text-xs pl-10 pr-4 py-2.5 rounded-xl focus:border-emerald-500 focus:bg-slate-900 focus:outline-none transition-all shadow-inner"
               />
             </div>
 
-            {/* Filtros de Proveedor y Estado */}
-            <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+            {/* Controles: Modo de Vista + Filtros de Proveedor */}
+            <div className="flex flex-wrap items-center gap-2.5 w-full xl:w-auto justify-between xl:justify-end">
+              {/* Selector de Modo de Vista */}
+              <div className="flex items-center bg-slate-950 border border-slate-800 rounded-xl p-1 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setRadarViewMode('comparativo')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 ${
+                    radarViewMode === 'comparativo'
+                      ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 shadow-md shadow-emerald-500/20'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                  title="Comparar Compufarma vs SkyStreaming vs G2A cara a cara"
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  Comparativa 3 Proveedores (Frente a Frente)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRadarViewMode('individual')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                    radarViewMode === 'individual'
+                      ? 'bg-slate-800 text-slate-100 shadow-sm'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                  title="Ver cada enlace y proveedor en tarjetas individuales"
+                >
+                  <Radio className="w-3.5 h-3.5" />
+                  Vista por Enlace
+                </button>
+              </div>
+
               {/* Filtro Proveedor */}
-              <div className="flex items-center gap-1 bg-slate-955 border border-slate-800 rounded-xl p-1 text-xs">
+              <div className="flex items-center gap-1 bg-slate-950 border border-slate-800 rounded-xl p-1 text-xs">
                 {['Todos', 'Compufarma', 'SkyStreaming', 'G2A'].map((p) => (
                   <button
                     key={p}
+                    type="button"
                     onClick={() => setFilterRadarProveedor(p)}
-                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                       filterRadarProveedor === p
                         ? 'bg-emerald-500 text-slate-950 font-bold shadow-sm'
                         : 'text-slate-400 hover:text-slate-200'
@@ -4663,11 +5052,12 @@ export default function AdminPanel() {
 
               {/* Botón Catálogo Compufarma Directo */}
               <button
+                type="button"
                 onClick={() => {
                   fetchCompufarmaCatalogo();
                   setShowRadarModal('catalogoCompufarma');
                 }}
-                className="bg-slate-955 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 transition-all"
+                className="bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm"
                 title="Ver los 45 productos de Compufarma"
               >
                 <Layers className="w-3.5 h-3.5 text-emerald-400" />
@@ -4676,227 +5066,439 @@ export default function AdminPanel() {
             </div>
           </div>
 
-          {/* 4. LISTADO DE PRODUCTOS EN RADAR (TARJETAS MODERNAS) */}
+          {/* 4. LISTADO DE PRODUCTOS EN RADAR */}
           {loadingRadar ? (
             <div className="bg-slate-900 border border-slate-800 rounded-3xl p-12 text-center shadow-xl">
               <RefreshCw className="w-8 h-8 text-emerald-400 animate-spin mx-auto mb-3" />
               <p className="text-slate-300 text-sm font-semibold">Cargando radar de proveedores...</p>
             </div>
-          ) : radarFiltrados.length === 0 ? (
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-12 text-center shadow-xl">
-              <Radio className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-              <p className="text-slate-200 text-base font-bold">No se encontraron productos en el radar</p>
-              <p className="text-slate-400 text-xs mt-1">Prueba cambiando los filtros o vincula un nuevo proveedor.</p>
-              <button
-                onClick={() => handleOpenRadarModal('create')}
-                className="mt-4 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs px-4 py-2 rounded-xl transition-all"
-              >
-                + Vincular Proveedor Ahora
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {radarFiltrados.map((item) => {
-                const provLower = item.proveedorNombre.toLowerCase();
-                const isCompufarma = provLower.includes('compufarma') || provLower.includes('ganvent');
-                const isSky = provLower.includes('skystreaming');
-                const isG2A = provLower.includes('g2a');
+          ) : radarViewMode === 'comparativo' ? (
+            /* ======================================================== */
+            /* --- VISTA COMPARATIVA: 3 PROVEEDORES FRENTE A FRENTE --- */
+            /* ======================================================== */
+            productosComparativosRadar.length === 0 ? (
+              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-12 text-center shadow-xl">
+                <Radio className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                <p className="text-slate-200 text-base font-bold">No se encontraron productos en la comparativa</p>
+                <p className="text-slate-400 text-xs mt-1">Prueba cambiando los filtros o vincula un producto con proveedores.</p>
+                <button
+                  type="button"
+                  onClick={() => handleOpenRadarModal('create')}
+                  className="mt-4 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs px-4 py-2 rounded-xl transition-all"
+                >
+                  + Vincular Proveedor Ahora
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {productosComparativosRadar.map((prodGroup) => {
+                  const {
+                    id,
+                    nombre,
+                    categoria,
+                    imagenUrl,
+                    precio,
+                    costoActual,
+                    compufarma,
+                    skystreaming,
+                    g2a,
+                    mejorProveedor,
+                    segundoProveedor,
+                    ahorro,
+                    desactualizadoEnTienda,
+                    totalTrackings,
+                    rawProduct
+                  } = prodGroup;
 
-                const provBadgeClass = isCompufarma
-                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                  : isSky
-                  ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30'
-                  : isG2A
-                  ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
-                  : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30';
-
-                const marginBadgeClass = 
-                  item.estadoMargen === 'optimo'
-                    ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-                    : item.estadoMargen === 'bueno'
-                    ? 'bg-sky-500/15 text-sky-300 border-sky-500/30'
-                    : item.estadoMargen === 'ajustado'
-                    ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
-                    : 'bg-rose-500/15 text-rose-300 border-rose-500/30';
-
-                return (
-                  <div
-                    key={item.id}
-                    className="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-3xl p-5 shadow-xl transition-all duration-300 flex flex-col justify-between group hover:-translate-y-0.5"
-                  >
-                    <div>
-                      {/* Cabecera de la tarjeta: Producto & Badge de Proveedor */}
-                      <div className="flex items-start justify-between gap-3 mb-3">
-                        <div className="flex items-center gap-3">
-                          {item.tiendaImagenUrl ? (
+                  return (
+                    <div
+                      key={id || nombre}
+                      className="bg-slate-900 border border-slate-800/90 hover:border-slate-700/80 rounded-3xl p-5 sm:p-6 shadow-2xl transition-all duration-300"
+                    >
+                      {/* Cabecera del Producto de la Tienda */}
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-800/80">
+                        <div className="flex items-center gap-3.5">
+                          {imagenUrl ? (
                             <img
-                              src={item.tiendaImagenUrl}
-                              alt={item.productoNombre}
-                              className="w-12 h-12 rounded-xl object-contain bg-slate-950 p-1 border border-slate-800"
+                              src={imagenUrl}
+                              alt={nombre}
+                              className="w-14 h-14 rounded-2xl object-contain bg-slate-950 p-1.5 border border-slate-800 shadow-md"
                               onError={(e) => { e.target.style.display = 'none'; }}
                             />
                           ) : (
-                            <div className="w-12 h-12 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 font-bold text-xs">
-                              <Package className="w-5 h-5 text-slate-400" />
+                            <div className="w-14 h-14 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 shadow-md">
+                              <Package className="w-6 h-6 text-slate-400" />
                             </div>
                           )}
                           <div>
-                            <h3 className="font-bold text-slate-100 text-sm group-hover:text-sky-300 transition-colors line-clamp-1">
-                              {item.productoNombre}
-                            </h3>
-                            <span className="text-[11px] text-slate-400 font-medium">
-                              {item.tiendaCategoria || 'Software'}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Badge Proveedor */}
-                        <span className={`text-[10px] font-black px-2.5 py-1 rounded-full border whitespace-nowrap ${provBadgeClass}`}>
-                          {item.proveedorNombre}
-                        </span>
-                      </div>
-
-                      {/* Matriz Financiera Comparativa */}
-                      <div className="bg-slate-955 border border-slate-800/80 rounded-2xl p-3.5 my-3 space-y-2.5">
-                        <div className="grid grid-cols-2 gap-2 pb-2.5 border-b border-slate-800">
-                          {/* Precio del Proveedor */}
-                          <div>
-                            <span className="text-[10px] uppercase font-bold text-slate-400 block">Costo Proveedor</span>
-                            <div className="flex items-baseline gap-1 mt-0.5">
-                              <span className="text-base font-black text-slate-100 font-mono">
-                                S/ {item.precioProveedorSoles.toFixed(2)}
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700/70">
+                                {categoria}
                               </span>
-                              {item.moneda === 'USD' && (
-                                <span className="text-[10px] text-slate-400">
-                                  (${item.precioProveedor.toFixed(2)})
+                              {totalTrackings >= 3 ? (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                                  ✓ 3 Proveedores Conectados
                                 </span>
-                              )}
-                            </div>
-                            <div className="text-[10px] mt-0.5 flex items-center gap-1">
-                              {item.disponible !== false ? (
-                                <span className="text-emerald-400 font-semibold flex items-center gap-1">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                                  {item.stockProveedor != null ? `${item.stockProveedor} disp.` : 'En Stock'}
+                              ) : totalTrackings > 0 ? (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-sky-500/15 text-sky-400 border border-sky-500/30">
+                                  {totalTrackings}/3 Proveedores Vinculados
                                 </span>
                               ) : (
-                                <span className="text-rose-400 font-semibold flex items-center gap-1">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
-                                  Agotado
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                                  Sin Proveedores Conectados
                                 </span>
                               )}
                             </div>
-                          </div>
-
-                          {/* PVP Venta Tienda */}
-                          <div className="text-right">
-                            <span className="text-[10px] uppercase font-bold text-slate-400 block">PVP Tienda</span>
-                            <div className="text-base font-black text-sky-400 font-mono mt-0.5">
-                              S/ {item.tiendaPrecio.toFixed(2)}
-                            </div>
-                            <span className="text-[10px] text-slate-400 block mt-0.5">
-                              Costo actual: S/ {item.tiendaCostoActual.toFixed(2)}
-                            </span>
+                            <h3 className="font-black text-slate-100 text-lg sm:text-xl mt-1 tracking-tight">
+                              {nombre}
+                            </h3>
                           </div>
                         </div>
 
-                        {/* Ganancia Neta & Margen */}
-                        <div className="flex items-center justify-between pt-0.5">
+                        {/* Precios Tienda: PVP y Costo Actual */}
+                        <div className="flex items-center gap-4 bg-slate-950 border border-slate-800/80 rounded-2xl px-4 py-2.5 w-full sm:w-auto justify-between sm:justify-start">
                           <div>
-                            <span className="text-[10px] uppercase font-bold text-slate-400 block">Ganancia Neta</span>
-                            <span className="text-sm font-black text-emerald-400 font-mono">
-                              +S/ {item.gananciaNetaSoles.toFixed(2)}
+                            <span className="text-[10px] uppercase font-bold text-slate-400 block">PVP Tienda</span>
+                            <span className="text-base sm:text-lg font-black text-sky-400 font-mono">
+                              S/ {precio.toFixed(2)}
                             </span>
                           </div>
-                          <div className="text-right">
-                            <span className="text-[10px] uppercase font-bold text-slate-400 block">Margen</span>
-                            <span className={`text-[11px] font-black px-2 py-0.5 rounded-md border inline-block ${marginBadgeClass}`}>
-                              +{item.margenPorcentaje.toFixed(1)}%
+                          <div className="h-8 w-px bg-slate-800"></div>
+                          <div>
+                            <span className="text-[10px] uppercase font-bold text-slate-400 block">Costo en Tienda</span>
+                            <span className="text-sm sm:text-base font-black text-slate-200 font-mono">
+                              S/ {costoActual.toFixed(2)}
                             </span>
                           </div>
+                          {desactualizadoEnTienda && mejorProveedor && (
+                            <span className="text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-1 rounded-xl animate-pulse">
+                              ⚠️ Mejorable
+                            </span>
+                          )}
                         </div>
                       </div>
 
-                      {/* Variación de Precio o Nota */}
-                      {item.variacionPrecio !== 0 && (
-                        <div className={`p-2 rounded-xl text-[11px] mb-3 flex items-center gap-1.5 border ${
-                          item.variacionPrecio > 0
-                            ? 'bg-rose-500/10 text-rose-300 border-rose-500/20'
-                            : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
-                        }`}>
-                          <TrendingUp className="w-3.5 h-3.5" />
-                          <span>
-                            {item.variacionPrecio > 0
-                              ? `Subió S/ ${item.variacionPrecio.toFixed(2)} recientemente`
-                              : `Bajó S/ ${Math.abs(item.variacionPrecio).toFixed(2)} de precio`}
+                      {/* Grilla 3 Proveedores Cara a Cara (Compufarma | SkyStreaming | G2A) */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 my-5">
+                        {/* Proveedor 1: Compufarma */}
+                        {renderProveedorComparativoColumna({
+                          nombreProv: 'Compufarma',
+                          subtitulo: 'Ganvent (Perú / Directo)',
+                          trackingItem: compufarma,
+                          colorTema: 'emerald',
+                          esGanador: mejorProveedor && compufarma && mejorProveedor.id === compufarma.id,
+                          pvpTienda: precio,
+                          costoTienda: costoActual,
+                          productoOriginal: rawProduct,
+                          productoNombre: nombre
+                        })}
+
+                        {/* Proveedor 2: SkyStreaming */}
+                        {renderProveedorComparativoColumna({
+                          nombreProv: 'SkyStreaming',
+                          subtitulo: 'Streaming & Software (Perú)',
+                          trackingItem: skystreaming,
+                          colorTema: 'cyan',
+                          esGanador: mejorProveedor && skystreaming && mejorProveedor.id === skystreaming.id,
+                          pvpTienda: precio,
+                          costoTienda: costoActual,
+                          productoOriginal: rawProduct,
+                          productoNombre: nombre
+                        })}
+
+                        {/* Proveedor 3: G2A */}
+                        {renderProveedorComparativoColumna({
+                          nombreProv: 'G2A',
+                          subtitulo: 'Marketplace Global de Claves',
+                          trackingItem: g2a,
+                          colorTema: 'amber',
+                          esGanador: mejorProveedor && g2a && mejorProveedor.id === g2a.id,
+                          pvpTienda: precio,
+                          costoTienda: costoActual,
+                          productoOriginal: rawProduct,
+                          productoNombre: nombre
+                        })}
+                      </div>
+
+                      {/* Footer Inteligente: Recomendación y Sincronización en 1 Click */}
+                      <div className="pt-4 border-t border-slate-800/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-slate-950/40 -mx-5 sm:-mx-6 -mb-5 sm:-mb-6 p-4 sm:p-5 rounded-b-3xl">
+                        <div className="text-xs">
+                          {mejorProveedor ? (
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                              <span className="font-bold text-slate-200 flex items-center gap-1.5">
+                                <span className="text-base">🏆</span>
+                                Mejor opción:
+                                <strong className="text-emerald-400 font-black">{mejorProveedor.proveedorNombre}</strong>
+                                a <span className="font-mono text-emerald-300 font-bold">S/ {mejorProveedor.precioProveedorSoles.toFixed(2)}</span>
+                              </span>
+                              <span className="text-slate-400">
+                                (Margen: <strong className="text-emerald-400 font-mono">+{mejorProveedor.margenPorcentaje.toFixed(1)}%</strong> / Ganancia: <strong className="text-emerald-400 font-mono">+S/ {mejorProveedor.gananciaNetaSoles.toFixed(2)}</strong>)
+                              </span>
+                              {ahorro > 0 && segundoProveedor && (
+                                <span className="text-emerald-300 font-semibold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-lg inline-block w-fit">
+                                  ✨ Ahorras S/ {ahorro.toFixed(2)} vs {segundoProveedor.proveedorNombre}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-slate-400 italic">
+                              Vincula tus proveedores para ver la comparativa de márgenes y ahorro en tiempo real.
+                            </span>
+                          )}
+                        </div>
+
+                        {mejorProveedor && (
+                          <div className="w-full sm:w-auto flex justify-end">
+                            {desactualizadoEnTienda || costoActual === 0 ? (
+                              <button
+                                type="button"
+                                onClick={() => handleAplicarCosto(mejorProveedor.id, nombre, mejorProveedor.precioProveedorSoles)}
+                                disabled={syncingCostId === mejorProveedor.id}
+                                className="w-full sm:w-auto bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-50"
+                                title="Actualizar el costo en la tienda con el mejor precio disponible"
+                              >
+                                <Zap className="w-4 h-4" />
+                                {syncingCostId === mejorProveedor.id ? 'Sincronizando...' : `⚡ Aplicar Mejor Costo (S/ ${mejorProveedor.precioProveedorSoles.toFixed(2)})`}
+                              </button>
+                            ) : (
+                              <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                                Costo óptimo sincronizado en tienda (S/ {costoActual.toFixed(2)})
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )
+          ) : (
+            /* ======================================================== */
+            /* --- VISTA INDIVIDUAL POR ENLACE DE PROVEEDOR --- */
+            /* ======================================================== */
+            radarFiltrados.length === 0 ? (
+              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-12 text-center shadow-xl">
+                <Radio className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                <p className="text-slate-200 text-base font-bold">No se encontraron productos en el radar</p>
+                <p className="text-slate-400 text-xs mt-1">Prueba cambiando los filtros o vincula un nuevo proveedor.</p>
+                <button
+                  type="button"
+                  onClick={() => handleOpenRadarModal('create')}
+                  className="mt-4 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs px-4 py-2 rounded-xl transition-all"
+                >
+                  + Vincular Proveedor Ahora
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {radarFiltrados.map((item) => {
+                  const provLower = item.proveedorNombre.toLowerCase();
+                  const isCompufarma = provLower.includes('compufarma') || provLower.includes('ganvent');
+                  const isSky = provLower.includes('skystreaming');
+                  const isG2A = provLower.includes('g2a');
+
+                  const provBadgeClass = isCompufarma
+                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                    : isSky
+                    ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30'
+                    : isG2A
+                    ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                    : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30';
+
+                  const marginBadgeClass = 
+                    item.estadoMargen === 'optimo'
+                      ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                      : item.estadoMargen === 'bueno'
+                      ? 'bg-sky-500/15 text-sky-300 border-sky-500/30'
+                      : item.estadoMargen === 'ajustado'
+                      ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                      : 'bg-rose-500/15 text-rose-300 border-rose-500/30';
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-3xl p-5 shadow-xl transition-all duration-300 flex flex-col justify-between group hover:-translate-y-0.5"
+                    >
+                      <div>
+                        {/* Cabecera de la tarjeta: Producto & Badge de Proveedor */}
+                        <div className="flex items-start justify-between gap-3 mb-3">
+                          <div className="flex items-center gap-3">
+                            {item.tiendaImagenUrl ? (
+                              <img
+                                src={item.tiendaImagenUrl}
+                                alt={item.productoNombre}
+                                className="w-12 h-12 rounded-xl object-contain bg-slate-950 p-1 border border-slate-800"
+                                onError={(e) => { e.target.style.display = 'none'; }}
+                              />
+                            ) : (
+                              <div className="w-12 h-12 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 font-bold text-xs">
+                                <Package className="w-5 h-5 text-slate-400" />
+                              </div>
+                            )}
+                            <div>
+                              <h3 className="font-bold text-slate-100 text-sm group-hover:text-sky-300 transition-colors line-clamp-1">
+                                {item.productoNombre}
+                              </h3>
+                              <span className="text-[11px] text-slate-400 font-medium">
+                                {item.tiendaCategoria || 'Software'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Badge Proveedor */}
+                          <span className={`text-[10px] font-black px-2.5 py-1 rounded-full border whitespace-nowrap ${provBadgeClass}`}>
+                            {item.proveedorNombre}
                           </span>
                         </div>
-                      )}
 
-                      {item.notas && (
-                        <p className="text-[11px] text-slate-400 italic line-clamp-1 mb-3">
-                          💬 {item.notas}
-                        </p>
-                      )}
-                    </div>
+                        {/* Matriz Financiera Comparativa */}
+                        <div className="bg-slate-950 border border-slate-800/80 rounded-2xl p-3.5 my-3 space-y-2.5">
+                          <div className="grid grid-cols-2 gap-2 pb-2.5 border-b border-slate-800">
+                            {/* Precio del Proveedor */}
+                            <div>
+                              <span className="text-[10px] uppercase font-bold text-slate-400 block">Costo Proveedor</span>
+                              <div className="flex items-baseline gap-1 mt-0.5">
+                                <span className="text-base font-black text-slate-100 font-mono">
+                                  S/ {item.precioProveedorSoles.toFixed(2)}
+                                </span>
+                                {item.moneda === 'USD' && (
+                                  <span className="text-[10px] text-slate-400">
+                                    (${item.precioProveedor.toFixed(2)})
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[10px] mt-0.5 flex items-center gap-1">
+                                {item.disponible !== false ? (
+                                  <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                    {item.stockProveedor != null ? `${item.stockProveedor} disp.` : 'En Stock'}
+                                  </span>
+                                ) : (
+                                  <span className="text-rose-400 font-semibold flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                                    Agotado
+                                  </span>
+                                )}
+                              </div>
+                            </div>
 
-                    {/* Acciones de la Tarjeta */}
-                    <div className="pt-3 border-t border-slate-800 flex items-center justify-between gap-1.5">
-                      {/* Sincronizar costo en 1 click */}
-                      <button
-                        onClick={() => handleAplicarCosto(item.id, item.productoNombre, item.precioProveedorSoles)}
-                        disabled={syncingCostId === item.id || !item.productoId}
-                        className="bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-[11px] font-black px-2.5 py-1.5 rounded-xl transition-all flex items-center gap-1 disabled:opacity-40"
-                        title="Aplicar este precio de proveedor como CostoProveedor en la tienda"
-                      >
-                        <Zap className="w-3.5 h-3.5 text-emerald-400" />
-                        {syncingCostId === item.id ? 'Sincronizando...' : 'Aplicar Costo'}
-                      </button>
+                            {/* PVP Venta Tienda */}
+                            <div className="text-right">
+                              <span className="text-[10px] uppercase font-bold text-slate-400 block">PVP Tienda</span>
+                              <div className="text-base font-black text-sky-400 font-mono mt-0.5">
+                                S/ {item.tiendaPrecio.toFixed(2)}
+                              </div>
+                              <span className="text-[10px] text-slate-400 block mt-0.5">
+                                Costo actual: S/ {item.tiendaCostoActual.toFixed(2)}
+                              </span>
+                            </div>
+                          </div>
 
-                      <div className="flex items-center gap-1">
-                        {/* Escanear individual */}
+                          {/* Ganancia Neta & Margen */}
+                          <div className="flex items-center justify-between pt-0.5">
+                            <div>
+                              <span className="text-[10px] uppercase font-bold text-slate-400 block">Ganancia Neta</span>
+                              <span className="text-sm font-black text-emerald-400 font-mono">
+                                +S/ {item.gananciaNetaSoles.toFixed(2)}
+                              </span>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-[10px] uppercase font-bold text-slate-400 block">Margen</span>
+                              <span className={`text-[11px] font-black px-2 py-0.5 rounded-md border inline-block ${marginBadgeClass}`}>
+                                +{item.margenPorcentaje.toFixed(1)}%
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Variación de Precio o Nota */}
+                        {item.variacionPrecio !== 0 && (
+                          <div className={`p-2 rounded-xl text-[11px] mb-3 flex items-center gap-1.5 border ${
+                            item.variacionPrecio > 0
+                              ? 'bg-rose-500/10 text-rose-300 border-rose-500/20'
+                              : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+                          }`}>
+                            <TrendingUp className="w-3.5 h-3.5" />
+                            <span>
+                              {item.variacionPrecio > 0
+                                ? `Subió S/ ${item.variacionPrecio.toFixed(2)} recientemente`
+                                : `Bajó S/ ${Math.abs(item.variacionPrecio).toFixed(2)} de precio`}
+                            </span>
+                          </div>
+                        )}
+
+                        {item.notas && (
+                          <p className="text-[11px] text-slate-400 italic line-clamp-1 mb-3">
+                            💬 {item.notas}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Acciones de la Tarjeta */}
+                      <div className="pt-3 border-t border-slate-800 flex items-center justify-between gap-1.5">
+                        {/* Sincronizar costo en 1 click */}
                         <button
-                          onClick={() => handleScanSingleItem(item.id, item.productoNombre)}
-                          disabled={scanningItemId === item.id}
-                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
-                          title="Escanear precio ahora"
+                          type="button"
+                          onClick={() => handleAplicarCosto(item.id, item.productoNombre, item.precioProveedorSoles)}
+                          disabled={syncingCostId === item.id || !item.productoId}
+                          className="bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-[11px] font-black px-2.5 py-1.5 rounded-xl transition-all flex items-center gap-1 disabled:opacity-40"
+                          title="Aplicar este precio de proveedor como CostoProveedor en la tienda"
                         >
-                          <RefreshCw className={`w-3.5 h-3.5 ${scanningItemId === item.id ? 'animate-spin text-emerald-400' : ''}`} />
+                          <Zap className="w-3.5 h-3.5 text-emerald-400" />
+                          {syncingCostId === item.id ? 'Sincronizando...' : 'Aplicar Costo'}
                         </button>
 
-                        {/* Abrir link del proveedor */}
-                        <a
-                          href={item.proveedorUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-sky-400 transition-colors"
-                          title="Abrir enlace del proveedor en nueva pestaña"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5" />
-                        </a>
+                        <div className="flex items-center gap-1">
+                          {/* Escanear individual */}
+                          <button
+                            type="button"
+                            onClick={() => handleScanSingleItem(item.id, item.productoNombre)}
+                            disabled={scanningItemId === item.id}
+                            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
+                            title="Escanear precio ahora"
+                          >
+                            <RefreshCw className={`w-3.5 h-3.5 ${scanningItemId === item.id ? 'animate-spin text-emerald-400' : ''}`} />
+                          </button>
 
-                        {/* Editar */}
-                        <button
-                          onClick={() => handleOpenRadarModal('edit', item)}
-                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-amber-400 transition-colors"
-                          title="Editar monitoreo"
-                        >
-                          <Edit3 className="w-3.5 h-3.5" />
-                        </button>
+                          {/* Abrir link del proveedor */}
+                          <a
+                            href={item.proveedorUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-sky-400 transition-colors"
+                            title="Abrir enlace del proveedor en nueva pestaña"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
 
-                        {/* Eliminar */}
-                        <button
-                          onClick={() => setRadarItemAEliminar(item)}
-                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-rose-400 transition-colors"
-                          title="Eliminar de monitoreo"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                          {/* Editar */}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenRadarModal('edit', item)}
+                            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-amber-400 transition-colors"
+                            title="Editar monitoreo"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+
+                          {/* Eliminar */}
+                          <button
+                            type="button"
+                            onClick={() => setRadarItemAEliminar(item)}
+                            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-rose-400 transition-colors"
+                            title="Eliminar de monitoreo"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )
           )}
         </div>
       )}
@@ -4972,7 +5574,7 @@ export default function AdminPanel() {
                     placeholder="Buscar en el catálogo de Compufarma (ej: Windows, Office, Filmora)..."
                     value={searchCompufarmaQuery}
                     onChange={(e) => setSearchCompufarmaQuery(e.target.value)}
-                    className="w-full bg-slate-955 border border-slate-800 text-slate-200 text-xs pl-9 pr-4 py-2.5 rounded-xl focus:border-emerald-500 focus:outline-none"
+                    className="w-full bg-slate-950 border border-slate-800 text-slate-100 placeholder:text-slate-500 text-xs pl-9 pr-4 py-2.5 rounded-xl focus:border-emerald-500 focus:bg-slate-900 focus:outline-none"
                   />
                 </div>
 
@@ -4989,7 +5591,7 @@ export default function AdminPanel() {
                         <div
                           key={idx}
                           onClick={() => handleSelectCompufarmaToForm(c)}
-                          className="bg-slate-955 hover:bg-slate-800/80 border border-slate-800 hover:border-emerald-500/50 rounded-2xl p-3 flex items-center justify-between gap-3 cursor-pointer transition-all group"
+                          className="bg-slate-950 hover:bg-slate-800/80 border border-slate-800 hover:border-emerald-500/50 rounded-2xl p-3 flex items-center justify-between gap-3 cursor-pointer transition-all group"
                         >
                           <div className="flex items-center gap-3">
                             {c.imagenUrl ? (
@@ -5040,7 +5642,7 @@ export default function AdminPanel() {
                         productoNombre: prod ? prod.nombre : prev.productoNombre
                       }));
                     }}
-                    className="w-full bg-slate-955 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:border-sky-500 focus:outline-none"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:border-sky-500 focus:bg-slate-900 focus:outline-none"
                   >
                     <option value="">-- Seleccionar Producto de tu Catálogo --</option>
                     {productos.map((prod) => (
@@ -5071,7 +5673,7 @@ export default function AdminPanel() {
                         className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-all ${
                           radarForm.proveedorNombre === prov
                             ? 'bg-sky-500/20 text-sky-300 border-sky-500/40'
-                            : 'bg-slate-955 text-slate-400 border-slate-800 hover:text-slate-200'
+                            : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200'
                         }`}
                       >
                         {prov}
@@ -5084,7 +5686,7 @@ export default function AdminPanel() {
                     onChange={(e) => setRadarForm(prev => ({ ...prev, proveedorNombre: e.target.value }))}
                     placeholder="Nombre del Proveedor..."
                     required
-                    className="w-full bg-slate-955 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:border-sky-500 focus:outline-none"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:bg-slate-900 focus:outline-none"
                   />
                 </div>
 
@@ -5099,7 +5701,7 @@ export default function AdminPanel() {
                     onChange={(e) => setRadarForm(prev => ({ ...prev, proveedorUrl: e.target.value }))}
                     placeholder="https://ganvent.com/compufarma o https://skystreaming.com.pe/..."
                     required
-                    className="w-full bg-slate-955 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:border-sky-500 focus:outline-none"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:bg-slate-900 focus:outline-none"
                   />
                 </div>
 
@@ -5115,7 +5717,7 @@ export default function AdminPanel() {
                       value={radarForm.precioProveedor}
                       onChange={(e) => setRadarForm(prev => ({ ...prev, precioProveedor: e.target.value }))}
                       placeholder="0.00 (auto-detect)"
-                      className="w-full bg-slate-955 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:border-sky-500 focus:outline-none font-mono"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:bg-slate-900 focus:outline-none font-mono"
                     />
                   </div>
 
@@ -5126,7 +5728,7 @@ export default function AdminPanel() {
                     <select
                       value={radarForm.moneda}
                       onChange={(e) => setRadarForm(prev => ({ ...prev, moneda: e.target.value }))}
-                      className="w-full bg-slate-955 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:border-sky-500 focus:outline-none"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:border-sky-500 focus:bg-slate-900 focus:outline-none"
                     >
                       <option value="PEN">PEN (Soles S/)</option>
                       <option value="USD">USD (Dólares $)</option>
@@ -5142,7 +5744,7 @@ export default function AdminPanel() {
                       value={radarForm.stockProveedor}
                       onChange={(e) => setRadarForm(prev => ({ ...prev, stockProveedor: e.target.value }))}
                       placeholder="Opcional"
-                      className="w-full bg-slate-955 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:border-sky-500 focus:outline-none font-mono"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:bg-slate-900 focus:outline-none font-mono"
                     />
                   </div>
                 </div>
@@ -5157,12 +5759,12 @@ export default function AdminPanel() {
                     value={radarForm.notas}
                     onChange={(e) => setRadarForm(prev => ({ ...prev, notas: e.target.value }))}
                     placeholder="Ej: Licencia OEM, Perfil 4K con PIN, activación directa..."
-                    className="w-full bg-slate-955 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:border-sky-500 focus:outline-none"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:bg-slate-900 focus:outline-none"
                   />
                 </div>
 
                 {/* Toggle Auto-Actualizar Costo */}
-                <div className="flex items-center gap-2 p-3 rounded-xl bg-slate-955 border border-slate-800">
+                <div className="flex items-center gap-2 p-3 rounded-xl bg-slate-950 border border-slate-800">
                   <input
                     type="checkbox"
                     id="autoActualizarCostoCheck"
@@ -5182,7 +5784,7 @@ export default function AdminPanel() {
                       setShowRadarModal(null);
                       setEditingRadarItem(null);
                     }}
-                    className="bg-slate-955 border border-slate-800 text-slate-400 text-xs px-4 py-2 rounded-xl transition-all"
+                    className="bg-slate-950 border border-slate-800 text-slate-400 text-xs px-4 py-2 rounded-xl transition-all hover:bg-slate-900 hover:text-slate-200"
                   >
                     Cancelar
                   </button>
@@ -5238,7 +5840,7 @@ export default function AdminPanel() {
                   placeholder="Filtrar en catálogo Compufarma..."
                   value={searchCompufarmaQuery}
                   onChange={(e) => setSearchCompufarmaQuery(e.target.value)}
-                  className="w-full bg-slate-955 border border-slate-800 text-slate-200 text-xs pl-9 pr-4 py-2.5 rounded-xl focus:border-emerald-500 focus:outline-none"
+                  className="w-full bg-slate-950 border border-slate-800 text-slate-100 placeholder:text-slate-500 text-xs pl-9 pr-4 py-2.5 rounded-xl focus:border-emerald-500 focus:bg-slate-900 focus:outline-none"
                 />
               </div>
             </div>
@@ -5249,7 +5851,7 @@ export default function AdminPanel() {
                 .map((c, idx) => (
                   <div
                     key={idx}
-                    className="bg-slate-955 border border-slate-800 rounded-2xl p-3 flex flex-col justify-between hover:border-emerald-500/40 transition-all"
+                    className="bg-slate-950 border border-slate-800 rounded-2xl p-3 flex flex-col justify-between hover:border-emerald-500/40 transition-all"
                   >
                     <div className="flex items-center gap-2.5 mb-2">
                       {c.imagenUrl ? (
